@@ -1,0 +1,95 @@
+import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query'
+import type {
+  Basis,
+  BreadthBoard,
+  ExpiryDetail,
+  InstrumentSeries,
+  OptionsSummary,
+  Performance,
+  Section,
+  VolContext,
+} from './types'
+
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(`/api/v2${path}`)
+  if (!res.ok) {
+    let detail = res.statusText
+    try {
+      const body = await res.json()
+      detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)
+    } catch {
+      /* body was not JSON */
+    }
+    throw new ApiError(res.status, detail)
+  }
+  return res.json() as Promise<T>
+}
+
+const enc = encodeURIComponent
+
+export const useSection = (code: string) =>
+  useQuery({ queryKey: ['section', code], queryFn: () => get<Section>(`/markets/sections/${code}`) })
+
+export const useInstrumentSeries = (key: string | null, bars: number) =>
+  useQuery({
+    queryKey: ['series', key, bars],
+    queryFn: () => get<InstrumentSeries>(`/markets/instruments/${enc(key!)}/series?bars=${bars}`),
+    enabled: !!key,
+    placeholderData: keepPreviousData,
+  })
+
+/** Several instruments' series at once (e.g. the Treasury curve levels). */
+export const useSeriesMany = (keys: string[], bars: number) =>
+  useQueries({
+    queries: keys.map((key) => ({
+      queryKey: ['series', key, bars],
+      queryFn: () => get<InstrumentSeries>(`/markets/instruments/${enc(key)}/series?bars=${bars}`),
+    })),
+  })
+
+export const usePerformance =(section: string, group: string | null, bars: number) =>
+  useQuery({
+    queryKey: ['performance', section, group, bars],
+    queryFn: () => get<Performance>(`/markets/sections/${section}/groups/${group}/performance?bars=${bars}`),
+    enabled: !!group,
+    placeholderData: keepPreviousData,
+  })
+
+export const useBreadth = (bars: number) =>
+  useQuery({
+    queryKey: ['breadth', 'nyse', bars],
+    queryFn: () => get<BreadthBoard>(`/breadth/nyse?bars=${bars}`),
+    placeholderData: keepPreviousData,
+  })
+
+export const useOptionsSummary = (basis: Basis, maxDays: number, refreshNonce: number) =>
+  useQuery({
+    queryKey: ['options', 'spx', basis, maxDays, refreshNonce],
+    queryFn: () =>
+      get<OptionsSummary>(`/options/spx/summary?basis=${basis}&max_days=${maxDays}${refreshNonce ? '&refresh=true' : ''}`),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+  })
+
+export const useExpiryDetail = (expiry: string | null, basis: Basis, refreshNonce: number) =>
+  useQuery({
+    queryKey: ['options', 'spx', 'expiry', expiry, basis, refreshNonce],
+    queryFn: () => get<ExpiryDetail>(`/options/spx/expiries/${expiry}?basis=${basis}&band=0.1`),
+    enabled: !!expiry,
+    placeholderData: keepPreviousData,
+  })
+
+export const useVolContext = (bars: number) =>
+  useQuery({
+    queryKey: ['options', 'spx', 'vol', bars],
+    queryFn: () => get<VolContext>(`/options/spx/vol-context?bars=${bars}`),
+    placeholderData: keepPreviousData,
+  })
