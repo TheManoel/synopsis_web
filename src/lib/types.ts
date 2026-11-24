@@ -349,3 +349,145 @@ export interface RelativeLine {
   change_pct: number | null
   warnings: string[]
 }
+
+// ---------------------------------------------------------------- strategy lab
+
+export type EntryPoint = 'open_t1' | 'close_t'
+export type ParamValue = number | string
+
+export interface StrategyParam {
+  name: string
+  label: string
+  type: 'int' | 'float' | 'choice'
+  default: ParamValue
+  min: number | null
+  max: number | null
+  choices: { value: string; label: string }[]
+  unit: string | null
+  description: string | null
+}
+
+export interface StrategyTemplate {
+  id: string
+  label: string
+  summary: string
+  description: string
+  side: 'long' | 'short'
+  params: StrategyParam[]
+  /** Relations between params, in words. */
+  constraints: string[]
+}
+
+export interface LabInstrument {
+  key: string
+  label: string
+  group: string
+  note: string | null
+}
+
+export interface StrategyLabCatalog {
+  strategies: StrategyTemplate[]
+  instruments: LabInstrument[]
+  entry_points: { value: EntryPoint; label: string; hint: string }[]
+  default_strategy: string
+  default_instrument: string
+  default_entry_point: EntryPoint
+  default_cost_bps: number
+  max_cost_bps: number
+}
+
+export interface BacktestRequest {
+  strategy: string
+  params: Record<string, ParamValue>
+  instrument: string
+  start: string
+  end: string
+  entry_point: EntryPoint
+  cost_bps: number
+}
+
+export interface PerformanceSummary {
+  total_return_pct: number | null
+  cagr_pct: number | null
+  max_drawdown_pct: number | null
+  sharpe: number | null
+  exposure_pct: number | null
+}
+
+export interface TradeStats {
+  n_trades: number
+  n_open: number
+  n_wins: number
+  win_rate_pct: number | null
+  profit_factor: number | null
+  mean_return_pct: number | null
+  median_return_pct: number | null
+  avg_win_pct: number | null
+  avg_loss_pct: number | null
+  bars_held_median: number | null
+  mfe_median_pct: number | null
+  mae_median_pct: number | null
+}
+
+export interface BacktestTrade {
+  signal_date: string
+  entry_date: string
+  entry_price: number
+  exit_date: string
+  exit_price: number
+  outcome: 'signal' | 'open' | 'stop' | 'target'
+  return_pct: number
+  gross_return_pct: number
+  bars_held: number
+  mfe_pct: number | null
+  mae_pct: number | null
+}
+
+export interface BacktestYear {
+  year: number
+  return_pct: number | null
+  benchmark_pct: number | null
+  excess_pct: number | null
+  max_drawdown_pct: number | null
+}
+
+/** Every daily series on one calendar (columnar); null = no value that day. */
+export interface BacktestSeries {
+  dates: string[]
+  price: (number | null)[]
+  equity: (number | null)[]
+  benchmark_equity: (number | null)[]
+  drawdown: (number | null)[]
+  benchmark_drawdown: (number | null)[]
+  overlays: { id: string; label: string; values: (number | null)[] }[]
+}
+
+export interface Backtest {
+  strategy_id: string
+  strategy_label: string
+  params: Record<string, ParamValue>
+  side: 'long' | 'short'
+  entry_text: string
+  exit_text: string
+  instrument_key: string
+  instrument_label: string
+  start: string
+  end: string
+  sessions: number
+  entry_point: EntryPoint
+  cost_bps: number
+  rules_defined_from: string | null
+  benchmark_label: string
+  strategy: PerformanceSummary
+  benchmark: PerformanceSummary | null
+  trade_stats: TradeStats
+  entry_signals: number
+  skipped_in_position: number
+  unfilled_signals: number
+  series: BacktestSeries
+  trades: BacktestTrade[]
+  years: BacktestYear[]
+  conventions: string[]
+  warnings: string[]
+  generated_at: string
+}

@@ -5,7 +5,9 @@ import {
   HistogramSeries,
   LineSeries,
   LineStyle,
+  PriceScaleMode,
   createChart,
+  createSeriesMarkers,
   type IChartApi,
   type ISeriesApi,
   type MouseEventParams,
@@ -17,9 +19,18 @@ import { useCssVars } from '../../lib/theme'
 
 export type Pt = { time: string; value: number | null }
 
+/** An event drawn on a line series (an entry, an exit). Sorted by time. */
+export interface Marker {
+  time: string
+  position: 'aboveBar' | 'belowBar'
+  shape: 'arrowUp' | 'arrowDown' | 'circle'
+  color: string
+  text?: string
+}
+
 export type SeriesSpec =
   | { type: 'candles'; id: string; label: string; data: { time: string; open: number; high: number; low: number; close: number }[]; format?: (v: number) => string }
-  | { type: 'line'; id: string; label: string; data: Pt[]; color: string; width?: 1 | 2 | 3; dashed?: boolean; format?: (v: number) => string }
+  | { type: 'line'; id: string; label: string; data: Pt[]; color: string; width?: 1 | 2 | 3; dashed?: boolean; format?: (v: number) => string; markers?: Marker[] }
   | { type: 'histogram'; id: string; label: string; data: Pt[]; color: string; negativeColor?: string; format?: (v: number) => string }
 
 export interface PaneSpec {
@@ -28,6 +39,8 @@ export interface PaneSpec {
   series: SeriesSpec[]
   /** Horizontal reference levels drawn on the pane's first series. */
   levels?: { value: number; label?: string; color?: string }[] // value shown on the price axis
+  /** Logarithmic price scale: equal moves in % look equal (long histories). */
+  logScale?: boolean
 }
 
 const THEME_VARS = ['surface', 'ink-2', 'ink-3', 'grid', 'axis', 'up', 'down', 'line-strong'] as const
@@ -74,7 +87,8 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
       },
       grid: { vertLines: { visible: false }, horzLines: { color: vars.grid } },
       rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: 0.08 } },
-      timeScale: { borderVisible: false, rightOffset: 4, minBarSpacing: 0.5 },
+      // A low floor lets fitContent show decades of sessions; it only bites past ~2 bars per pixel.
+      timeScale: { borderVisible: false, rightOffset: 4, minBarSpacing: 0.02 },
       crosshair: {
         mode: CrosshairMode.Magnet,
         vertLine: { color: vars.axis, width: 1, style: LineStyle.Solid, labelBackgroundColor: vars.axis },
@@ -111,6 +125,11 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
             paneIndex,
           )
           api.setData(s.data.map((d) => (d.value == null ? { time: d.time as Time } : { time: d.time as Time, value: d.value })))
+          if (s.markers?.length)
+            createSeriesMarkers(
+              api,
+              s.markers.map((mk) => ({ ...mk, time: mk.time as Time, color: resolve(mk.color), size: 1 })),
+            )
         } else {
           const pos = resolve(s.color)
           const neg = resolve(s.negativeColor ?? s.color)
@@ -133,6 +152,12 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
               lineStyle: LineStyle.Solid, axisLabelVisible: true, title: '',
             })
       })
+    })
+
+    // Per pane, by index: a series' own priceScale() reaches the shared 'right'
+    // scale, and a log mode there would also take the panes below (drawdowns ≤ 0).
+    panes.forEach((pane, paneIndex) => {
+      if (pane.logScale) chart.priceScale('right', paneIndex).applyOptions({ mode: PriceScaleMode.Logarithmic })
     })
 
     const total = panes.reduce((a, p) => a + (p.stretch ?? 1), 0)

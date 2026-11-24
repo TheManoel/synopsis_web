@@ -7,6 +7,7 @@ import { Skeleton } from './components/ui'
 const MarketSectionPage = lazy(() => import('./pages/MarketSectionPage').then((m) => ({ default: m.MarketSectionPage })))
 const BreadthPage = lazy(() => import('./pages/BreadthPage').then((m) => ({ default: m.BreadthPage })))
 const GroupsPage = lazy(() => import('./pages/GroupsPage').then((m) => ({ default: m.GroupsPage })))
+const StrategyLabPage = lazy(() => import('./pages/StrategyLabPage').then((m) => ({ default: m.StrategyLabPage })))
 const OptionsPage = lazy(() => import('./pages/OptionsPage').then((m) => ({ default: m.OptionsPage })))
 
 const client = new QueryClient({
@@ -29,6 +30,7 @@ export default function App() {
             <Route path="/materias-primas" element={<MarketSectionPage key="commodities" section="commodities" />} />
             <Route path="/divisas-bonos" element={<MarketSectionPage key="rates_fx" section="rates_fx" />} />
             <Route path="/opciones" element={<OptionsPage />} />
+            <Route path="/strategy-lab" element={<StrategyLabPage />} />
             <Route path="*" element={<Navigate to="/indices" replace />} />
           </Routes>
           </Suspense>

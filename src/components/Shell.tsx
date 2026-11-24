@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Activity, ChartCandlestick, Flame, Landmark, Moon, Orbit, Sigma, Sun } from 'lucide-react'
+import { Activity, ChartCandlestick, FlaskConical, Flame, Landmark, Moon, Orbit, Sigma, Sun, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router'
 import { useSection } from '../lib/api'
@@ -8,14 +8,26 @@ import { setTheme, useTheme } from '../lib/theme'
 import type { InstrumentCard } from '../lib/types'
 import { Delta } from './ui'
 
-const NAV = [
-  { to: '/indices', label: 'Índices', icon: ChartCandlestick },
-  { to: '/amplitud', label: 'Amplitud', icon: Activity },
-  { to: '/grupos', label: 'Grupos y rotación', icon: Orbit },
-  { to: '/materias-primas', label: 'Materias primas', icon: Flame },
-  { to: '/divisas-bonos', label: 'Divisas y bonos', icon: Landmark },
-  { to: '/opciones', label: 'Opciones', icon: Sigma, badge: 'PoC' },
+type NavItem = { to: string; label: string; icon: LucideIcon; badge?: string }
+
+const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: 'Mercados',
+    items: [
+      { to: '/indices', label: 'Índices', icon: ChartCandlestick },
+      { to: '/amplitud', label: 'Amplitud', icon: Activity },
+      { to: '/grupos', label: 'Grupos y rotación', icon: Orbit },
+      { to: '/materias-primas', label: 'Materias primas', icon: Flame },
+      { to: '/divisas-bonos', label: 'Divisas y bonos', icon: Landmark },
+      { to: '/opciones', label: 'Opciones', icon: Sigma, badge: 'PoC' },
+    ],
+  },
+  {
+    title: 'Laboratorio',
+    items: [{ to: '/strategy-lab', label: 'Strategy Lab', icon: FlaskConical }],
+  },
 ]
+const NAV = NAV_GROUPS.flatMap((g) => g.items)
 
 const TAPE: Record<string, string[]> = {
   indices: ['^SPX@CBOE', '^NDX@XNAS', '^STOXX@XETR'],
@@ -99,9 +111,11 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="px-2 pb-6">
           <Logo />
         </div>
-        <div className="eyebrow px-2.5 pb-2">Mercados</div>
+        {NAV_GROUPS.map((group, gi) => (
+        <div key={group.title} className={clsx(gi > 0 && 'pt-5')}>
+        <div className="eyebrow px-2.5 pb-2">{group.title}</div>
         <nav className="flex flex-col gap-0.5">
-          {NAV.map(({ to, label, icon: Icon, badge }) => (
+          {group.items.map(({ to, label, icon: Icon, badge }) => (
             <NavLink
               key={to}
               to={to}
@@ -122,6 +136,8 @@ export function Shell({ children }: { children: ReactNode }) {
             </NavLink>
           ))}
         </nav>
+        </div>
+        ))}
         <div className="mt-auto border-t border-line pt-3">
           <ThemeToggle />
           <p className="px-2.5 pt-2 text-[10px] leading-relaxed text-ink-3">

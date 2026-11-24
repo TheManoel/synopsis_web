@@ -7,7 +7,7 @@ metadata:
 
 # Synopsis · estado del proyecto
 
-- **Estado**: v0 hecha el 2026-11-24 (+ Grupos y rotación el mismo día). Seis páginas con datos reales; sin tests de front.
+- **Estado**: v0 hecha el 2026-11-24 (+ Grupos y rotación y Strategy Lab el mismo día). Siete páginas con datos reales; sin tests de front.
 - **Leer si**: empiezas una sesión en este repo o vas a añadir una feature
 - **Código**: `src/pages/*`, backend en `../screener_core/src/applications/synopsis/`
 
@@ -21,6 +21,7 @@ metadata:
 | Materias primas | `/materias-primas` | `/markets/sections/commodities` |
 | Divisas y bonos | `/divisas-bonos` | `/markets/sections/rates_fx` |
 | Opciones (PoC) | `/opciones` | `/options/spx/*` — ver [[project_options_poc]] |
+| Strategy Lab | `/strategy-lab` | `/strategy-lab/*` — ver [[project_strategy_lab]] |
 
 La sección `volatility` del catálogo no tiene página propia: alimenta la cinta superior y el
 contexto de volatilidad de Opciones. Detalle de endpoints en [[reference_api_v2]].

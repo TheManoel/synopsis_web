@@ -33,5 +33,7 @@ nunca solo color), `Pill`, `Warnings`, `InfoTip`, `Skeleton`, `PageHeader`.
   o tema → memoizar `panes` en el llamador. Lee los colores resueltos con `useCssVars`.
 - `LinePlot` / `StrikeBars` (`xy.tsx`, SVG): tooltip con regla vertical, `refX`/`refY`,
   separación de 2px entre barras, zona de hover más ancha que la marca.
+- `TimeChart` también admite `markers` (eventos sobre una serie de línea: entradas/salidas) y
+  `logScale` por panel (historias largas).
 - Nunca dos ejes Y: unidades distintas → paneles distintos.
 - Al recargar se mantiene el render anterior atenuado (`is-stale`), sin parpadeo de skeleton.

@@ -1,5 +1,7 @@
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query'
 import type {
+  Backtest,
+  BacktestRequest,
   Basis,
   BreadthBoard,
   ExpiryDetail,
@@ -12,6 +14,7 @@ import type {
   RotationBoard,
   RotationUniverseRef,
   Section,
+  StrategyLabCatalog,
   Timeframe,
   VolContext,
 } from './types'
@@ -25,12 +28,25 @@ export class ApiError extends Error {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`/api/v2${path}`)
+  return request<T>(path)
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`/api/v2${path}`, init)
   if (!res.ok) {
     let detail = res.statusText
     try {
       const body = await res.json()
-      detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)
+      detail =
+        typeof body.detail === 'string'
+          ? body.detail
+          : Array.isArray(body.detail) // FastAPI validation: [{loc, msg}, …]
+            ? body.detail.map((d: { loc?: unknown[]; msg?: string }) => `${d.loc?.at(-1) ?? ''}: ${d.msg ?? ''}`).join(' · ')
+            : JSON.stringify(body.detail)
     } catch {
       /* body was not JSON */
     }
@@ -124,6 +140,25 @@ export const useParticipation = (code: string, lens: ParticipationLens, enabled:
     queryKey: ['groups', code, 'participation', lens],
     queryFn: () => get<Participation>(`/groups/${code}/participation?lens=${lens}`),
     enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 15 * 60_000,
+    retry: 0,
+  })
+
+export const useStrategyLabCatalog = () =>
+  useQuery({
+    queryKey: ['strategy-lab', 'catalog'],
+    queryFn: () => get<StrategyLabCatalog>('/strategy-lab/catalog'),
+    staleTime: Infinity,
+  })
+
+/** A backtest is a pure function of its request: cached by it, never retried
+ *  (a 422 is the core refusing the values, in words). */
+export const useBacktest = (req: BacktestRequest | null) =>
+  useQuery({
+    queryKey: ['strategy-lab', 'backtest', req],
+    queryFn: () => post<Backtest>('/strategy-lab/backtest', req),
+    enabled: !!req,
     placeholderData: keepPreviousData,
     staleTime: 15 * 60_000,
     retry: 0,
