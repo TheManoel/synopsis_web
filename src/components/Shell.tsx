@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Activity, ChartCandlestick, Flame, Landmark, Moon, Sigma, Sun } from 'lucide-react'
+import { Activity, ChartCandlestick, Flame, Landmark, Moon, Orbit, Sigma, Sun } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router'
 import { useSection } from '../lib/api'
@@ -11,6 +11,7 @@ import { Delta } from './ui'
 const NAV = [
   { to: '/indices', label: 'Índices', icon: ChartCandlestick },
   { to: '/amplitud', label: 'Amplitud', icon: Activity },
+  { to: '/grupos', label: 'Grupos y rotación', icon: Orbit },
   { to: '/materias-primas', label: 'Materias primas', icon: Flame },
   { to: '/divisas-bonos', label: 'Divisas y bonos', icon: Landmark },
   { to: '/opciones', label: 'Opciones', icon: Sigma, badge: 'PoC' },

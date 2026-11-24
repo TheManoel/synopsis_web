@@ -16,4 +16,5 @@
 
 ## Dominios
 
+- [Grupos y rotación](project_groups_rotation.md) — RRG por universo, dos referencias (cesta vs índice), participación lenta en frío
 - [Opciones (PoC SPX)](project_options_poc.md) — fuente, método, supuestos y limitaciones de la cadena

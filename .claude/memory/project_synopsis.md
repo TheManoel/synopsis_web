@@ -7,7 +7,7 @@ metadata:
 
 # Synopsis · estado del proyecto
 
-- **Estado**: v0 hecha el 2026-11-24. Cinco páginas operativas con datos reales; sin tests de front.
+- **Estado**: v0 hecha el 2026-11-24 (+ Grupos y rotación el mismo día). Seis páginas con datos reales; sin tests de front.
 - **Leer si**: empiezas una sesión en este repo o vas a añadir una feature
 - **Código**: `src/pages/*`, backend en `../screener_core/src/applications/synopsis/`
 
@@ -17,6 +17,7 @@ metadata:
 |---|---|---|
 | Índices | `/indices` | `/markets/sections/indices` |
 | Amplitud NYSE | `/amplitud` | `/breadth/nyse` |
+| Grupos y rotación | `/grupos` | `/groups/*` — ver [[project_groups_rotation]] |
 | Materias primas | `/materias-primas` | `/markets/sections/commodities` |
 | Divisas y bonos | `/divisas-bonos` | `/markets/sections/rates_fx` |
 | Opciones (PoC) | `/opciones` | `/options/spx/*` — ver [[project_options_poc]] |

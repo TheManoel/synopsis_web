@@ -5,8 +5,14 @@ import type {
   ExpiryDetail,
   InstrumentSeries,
   OptionsSummary,
+  Participation,
+  ParticipationLens,
   Performance,
+  RelativeLine,
+  RotationBoard,
+  RotationUniverseRef,
   Section,
+  Timeframe,
   VolContext,
 } from './types'
 
@@ -55,7 +61,7 @@ export const useSeriesMany = (keys: string[], bars: number) =>
     })),
   })
 
-export const usePerformance =(section: string, group: string | null, bars: number) =>
+export const usePerformance = (section: string, group: string | null, bars: number) =>
   useQuery({
     queryKey: ['performance', section, group, bars],
     queryFn: () => get<Performance>(`/markets/sections/${section}/groups/${group}/performance?bars=${bars}`),
@@ -92,4 +98,33 @@ export const useVolContext = (bars: number) =>
     queryKey: ['options', 'spx', 'vol', bars],
     queryFn: () => get<VolContext>(`/options/spx/vol-context?bars=${bars}`),
     placeholderData: keepPreviousData,
+  })
+
+export const useRotationUniverses = () =>
+  useQuery({ queryKey: ['groups'], queryFn: () => get<RotationUniverseRef[]>('/groups'), staleTime: Infinity })
+
+export const useRotationBoard = (code: string, timeframe: Timeframe) =>
+  useQuery({
+    queryKey: ['groups', code, 'rotation', timeframe],
+    queryFn: () => get<RotationBoard>(`/groups/${code}/rotation?timeframe=${timeframe}`),
+    placeholderData: keepPreviousData,
+  })
+
+export const useRelativeLine = (code: string, symbol: string | null, bars: number) =>
+  useQuery({
+    queryKey: ['groups', code, 'relative', symbol, bars],
+    queryFn: () => get<RelativeLine>(`/groups/${code}/relative/${enc(symbol!)}?bars=${bars}`),
+    enabled: !!symbol,
+    placeholderData: keepPreviousData,
+  })
+
+/** The components' RS panel: slow when cold (~1 min), cached by the core afterwards. */
+export const useParticipation = (code: string, lens: ParticipationLens, enabled: boolean) =>
+  useQuery({
+    queryKey: ['groups', code, 'participation', lens],
+    queryFn: () => get<Participation>(`/groups/${code}/participation?lens=${lens}`),
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 15 * 60_000,
+    retry: 0,
   })

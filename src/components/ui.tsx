@@ -32,7 +32,7 @@ export function Segmented<T extends string | number>({
             title={o.hint}
             onClick={() => onChange(o.value)}
             className={clsx(
-              'rounded-[8px] font-medium transition-colors',
+              'whitespace-nowrap rounded-[8px] font-medium transition-colors',
               size === 'sm' ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1.5 text-xs',
               active ? 'bg-surface-3 text-ink shadow-sm' : 'text-ink-3 hover:text-ink-2',
             )}

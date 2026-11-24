@@ -220,3 +220,132 @@ export interface VolContext {
   series: Record<string, (number | null)[]>
   warnings: string[]
 }
+
+// ---------------------------------------------------------------- groups & rotation
+
+export type Quadrant = 'Leading' | 'Weakening' | 'Lagging' | 'Improving'
+export type Timeframe = 'weekly' | 'daily'
+
+export interface RotationUniverseRef {
+  code: string
+  title: string
+  subtitle: string
+  benchmark_label: string
+  has_participation: boolean
+}
+
+export interface TrailPoint {
+  date: string
+  ratio: number
+  momentum: number
+  quadrant: Quadrant
+}
+
+export interface Excess {
+  horizon: string
+  group_pct: number | null
+  bench_pct: number | null
+  /** group_pct − bench_pct, percentage points. */
+  excess_pp: number | null
+}
+
+export interface RotationGroup {
+  symbol: string
+  /** `TICKER@MIC`, for /markets/instruments/{key}/series. */
+  key: string
+  label: string
+  as_of: string | null
+  quadrant: Quadrant | null
+  ratio: number | null
+  momentum: number | null
+  dwell_bars: number | null
+  /** Mean step over the last 4 bars, RRG points. */
+  velocity: number | null
+  /** 0° = RS-Ratio rising (east), 90° = RS-Momentum rising (north). */
+  heading_deg: number | null
+  distance: number | null
+  trail: TrailPoint[]
+  excess: Excess[]
+  warnings: string[]
+}
+
+export interface QuadrantEvent {
+  symbol: string
+  label: string
+  date: string
+  from_quadrant: Quadrant
+  to_quadrant: Quadrant
+  velocity: number
+  heading_deg: number
+}
+
+export interface RotationSignalEvent {
+  symbol: string
+  label: string
+  date: string
+  kind: string
+  name: string
+  description: string
+  polarity: 'bullish' | 'bearish'
+  quadrant: Quadrant
+  ratio: number
+  momentum: number
+}
+
+export interface RotationBoard {
+  code: string
+  title: string
+  subtitle: string
+  timeframe: Timeframe
+  benchmark_key: string
+  benchmark_label: string
+  peer_note: string
+  as_of: string | null
+  bar_in_progress: boolean
+  dates: string[]
+  quadrant_counts: Record<Quadrant, number>
+  groups: RotationGroup[]
+  events: QuadrantEvent[]
+  signals: RotationSignalEvent[]
+  signals_note: string
+  generated_at: string
+  warnings: string[]
+}
+
+export interface ParticipationRow {
+  code: string
+  name: string
+  symbol: string | null
+  n_members: number
+  mean_percentile: number
+  pct_leaders: number
+  pct_laggards: number
+  net_participation: number
+  mean_delta: number | null
+}
+
+export type ParticipationLens = 'rs_1m' | 'rs_3m' | 'rs_12m'
+
+export interface Participation {
+  code: string
+  universe: string
+  scope: string
+  lens_key: ParticipationLens
+  lens_label: string
+  bar_date: string
+  delta_bars: number
+  leader_percentile: number
+  laggard_percentile: number
+  rows: ParticipationRow[]
+  warnings: string[]
+}
+
+export interface RelativeLine {
+  symbol: string
+  label: string
+  benchmark_label: string
+  start: string | null
+  points: LinePoint[]
+  change_pct: number | null
+  warnings: string[]
+}

@@ -10,6 +10,7 @@ ni convenciones de UI). Ver memoria `feedback_fresh_start`.
 ## Comandos
 
 ```bash
+npm run dev:all      # API (:8899) + front (:5180) juntos; Ctrl+C para ambos
 npm run dev          # http://localhost:5180, proxy /api → :8899 (SYNOPSIS_API para otro destino)
 npm run build        # tsc -b + vite build
 npx oxlint src       # lint
@@ -22,11 +23,13 @@ API_ONLY=1 poetry run uvicorn src.applications.signal_lab.web.app:create_app --f
 - `src/lib/` — `types.ts` (espejo de los DTO de `/api/v2`), `api.ts` (hooks de datos),
   `format.ts` (formato es-ES y por unidad), `theme.ts` (tema y variables CSS para canvas)
 - `src/components/` — `Shell` (navegación + cinta), `ui.tsx` (primitivas), `charts/`
-  (`TimeChart` series temporales multipanel; `xy.tsx` gráficos SVG: líneas y barras por strike)
+  (`TimeChart` series temporales multipanel; `xy.tsx` gráficos SVG: líneas y barras por strike;
+  `RotationMap` RRG en SVG)
 - `src/pages/` — `MarketSectionPage` (índices, materias primas, divisas y bonos),
-  `BreadthPage` (NYSE), `OptionsPage` (PoC SPX)
+  `BreadthPage` (NYSE), `GroupsPage` (grupos y rotación, RRG), `OptionsPage` (PoC SPX)
 - Backend de este front en el core: `src/applications/synopsis/` (rutas + servicios),
-  `src/core/markets/`, `src/core/options/`, `config/markets/catalog.yaml`
+  `src/core/markets/`, `src/core/options/`, `config/markets/catalog.yaml`,
+  `config/markets/rotation.yaml` (universos de grupos)
 
 ## Reglas
 
