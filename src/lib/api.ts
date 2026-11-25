@@ -4,6 +4,8 @@ import type {
   BacktestRequest,
   Basis,
   BreadthBoard,
+  Diagnosis,
+  DiagnoseRequest,
   ExpiryDetail,
   IndicatorCatalog,
   IndicatorSeries,
@@ -177,6 +179,18 @@ export const useBacktest = (req: BacktestRequest | null) =>
   useQuery({
     queryKey: ['strategy-lab', 'backtest', req],
     queryFn: () => post<Backtest>('/strategy-lab/backtest', req),
+    enabled: !!req,
+    placeholderData: keepPreviousData,
+    staleTime: 15 * 60_000,
+    retry: 0,
+  })
+
+/** Why a strategy did (not) signal in a window of a backtest: its rules traced
+ *  session by session. Pure like the backtest: cached by its request. */
+export const useDiagnosis = (req: DiagnoseRequest | null) =>
+  useQuery({
+    queryKey: ['strategy-lab', 'diagnose', req],
+    queryFn: () => post<Diagnosis>('/strategy-lab/diagnose', req),
     enabled: !!req,
     placeholderData: keepPreviousData,
     staleTime: 15 * 60_000,

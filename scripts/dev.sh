@@ -29,8 +29,10 @@ trap 'trap - INT TERM EXIT; kill 0 2>/dev/null' INT TERM EXIT
 
 (
   cd "$CORE_DIR"
+  # --reload: la API se reinicia sola al cambiar el código del core (solo src/,
+  # no config/: guardar una estrategia o la watchlist no la reinicia).
   API_ONLY=1 poetry run uvicorn src.applications.signal_lab.web.app:create_app \
-    --factory --port "$API_PORT" 2>&1 | sed -u 's/^/[api]   /'
+    --factory --port "$API_PORT" --reload --reload-dir src 2>&1 | sed -u 's/^/[api]   /'
 ) &
 
 (

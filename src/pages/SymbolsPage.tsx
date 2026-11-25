@@ -1,11 +1,12 @@
 import clsx from 'clsx'
 import { AlertTriangle, Star } from 'lucide-react'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
+import { SymbolBacktest } from '../components/symbols/SymbolBacktest'
 import { SymbolChart } from '../components/symbols/SymbolChart'
 import { SymbolSearch } from '../components/symbols/SymbolSearch'
 import { WatchlistPanel } from '../components/symbols/Watchlist'
-import { Card, Delta, ErrorState, InfoTip, Pill, Skeleton, Warnings } from '../components/ui'
+import { Card, Delta, ErrorState, InfoTip, Pill, Segmented, Skeleton, Warnings } from '../components/ui'
 import { useIndicatorCatalog, useSaveWatchlist, useSymbolProfile, useWatchlist } from '../lib/api'
 import {
   assetTypeLabel,
@@ -22,6 +23,32 @@ import { symbolPath } from '../lib/symbolNav'
 import type { EarningsRow, RelativeTable, RsRank, StageInfo, SymbolProfile, TechnicalReading } from '../lib/types'
 
 const LAST_KEY = 'synopsis.symbols.last'
+const VIEW_KEY = 'synopsis.symbols.view'
+type View = 'analysis' | 'backtest'
+const VIEWS: { value: View; label: string; hint: string }[] = [
+  { value: 'analysis', label: 'Análisis', hint: 'Gráfico, fuerza relativa, etapa y lectura técnica' },
+  { value: 'backtest', label: 'Backtest', hint: 'Una estrategia del Strategy Lab sobre este activo, y por qué dio (o no) señal' },
+]
+
+/** The tab follows the user from symbol to symbol. */
+function useView(): [View, (v: View) => void] {
+  const [view, setView] = useState<View>(() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) === 'backtest' ? 'backtest' : 'analysis'
+    } catch {
+      return 'analysis'
+    }
+  })
+  const set = (v: View) => {
+    setView(v)
+    try {
+      localStorage.setItem(VIEW_KEY, v)
+    } catch {
+      /* no storage */
+    }
+  }
+  return [view, set]
+}
 const FALLBACK = '^SPX@CBOE'
 const HORIZON_LABEL: Record<string, string> = { '1D': '1D', '1W': '1S', '1M': '1M', '3M': '3M', '6M': '6M', '1Y': '1A', YTD: 'En el año' }
 
@@ -46,6 +73,7 @@ export function SymbolsPage() {
   const save = useSaveWatchlist()
   const catalog = useIndicatorCatalog()
   const profile = useSymbolProfile(key)
+  const [view, setView] = useView()
   const watchedKeys = useMemo(() => watch.data?.items.map((i) => i.key) ?? [], [watch.data])
   const watched = useMemo(() => new Set(watchedKeys), [watchedKeys])
 
@@ -77,22 +105,29 @@ export function SymbolsPage() {
         {profile.error && <ErrorState error={profile.error} />}
         {profile.isLoading && <Skeleton className="h-[120px]" />}
         {profile.data && <Header p={profile.data} watched={watched.has(key)} onToggle={toggleWatch} />}
-        {catalog.data ? <SymbolChart symbolKey={key} catalog={catalog.data} /> : <Skeleton className="h-[640px]" />}
-        {catalog.error && <ErrorState error={catalog.error} />}
-        {profile.data && (
+        <Segmented label="Vista" value={view} options={VIEWS} onChange={setView} />
+        {view === 'backtest' ? (
+          <SymbolBacktest symbolKey={key} />
+        ) : (
           <>
-            <div className="grid gap-5 xl:grid-cols-2">
-              <RelativeCard p={profile.data} />
-              <StageCard stage={profile.data.stage} />
-            </div>
-            <ReferencesCard p={profile.data} />
-            <div className="grid gap-5 xl:grid-cols-2">
-              <TechnicalsCard items={profile.data.technicals} />
-              {profile.data.earnings ? <EarningsCard e={profile.data.earnings} currency={profile.data.currency} /> : <ProfileFacts p={profile.data} />}
-            </div>
+            {catalog.data ? <SymbolChart symbolKey={key} catalog={catalog.data} /> : <Skeleton className="h-[640px]" />}
+            {catalog.error && <ErrorState error={catalog.error} />}
+            {profile.data && (
+              <>
+                <div className="grid gap-5 xl:grid-cols-2">
+                  <RelativeCard p={profile.data} />
+                  <StageCard stage={profile.data.stage} />
+                </div>
+                <ReferencesCard p={profile.data} />
+                <div className="grid gap-5 xl:grid-cols-2">
+                  <TechnicalsCard items={profile.data.technicals} />
+                  {profile.data.earnings ? <EarningsCard e={profile.data.earnings} currency={profile.data.currency} /> : <ProfileFacts p={profile.data} />}
+                </div>
+              </>
+            )}
+            {profile.isLoading && <Skeleton className="h-[320px]" />}
           </>
         )}
-        {profile.isLoading && <Skeleton className="h-[320px]" />}
       </div>
     </div>
   )

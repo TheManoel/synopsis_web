@@ -647,6 +647,56 @@ export interface Backtest {
   generated_at: string
 }
 
+/** A backtest's request plus the window to explain (inside its period). */
+export interface DiagnoseRequest extends BacktestRequest {
+  window_start: string
+  window_end: string
+}
+
+/** pct: % of B (price series) · pp: percentage points · points: oscillator points. */
+export type MarginUnit = 'pct' | 'pp' | 'points'
+
+/** A condition or a group of a rule over the window's sessions. */
+export interface TraceNode {
+  kind: 'condition' | 'group'
+  text: string
+  combinator: 'all' | 'any' | null
+  /** Per session: held or not; null while its inputs are undefined (warm-up). */
+  held: (boolean | null)[]
+  held_count: number
+  /** Comparisons: how far from holding, per session (> 0: on the side it asks for). */
+  margin: (number | null)[] | null
+  margin_unit: MarginUnit | null
+  summary: string
+  last_before: string | null
+  children: TraceNode[]
+}
+
+export type SignalStatus = 'taken' | 'in_position' | 'unfilled'
+
+export interface Diagnosis {
+  strategy_label: string
+  instrument_key: string
+  instrument_label: string
+  entry_text: string
+  exit_text: string
+  window_start: string
+  window_end: string
+  sessions: number
+  dates: string[]
+  closes: number[]
+  in_position: boolean[]
+  signals: { date: string; status: SignalStatus }[]
+  entries: string[]
+  exits: string[]
+  verdict: string
+  reasons: string[]
+  entry: TraceNode
+  exit: TraceNode
+  max_sessions: number
+  warnings: string[]
+}
+
 // ---------------------------------------------------------------- symbols
 
 export type IndicatorUnit = 'price' | 'percent' | 'oscillator' | 'points' | 'volume' | 'index' | 'percentile'

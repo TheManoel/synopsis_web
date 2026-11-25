@@ -10,7 +10,7 @@ ni convenciones de UI). Ver memoria `feedback_fresh_start`.
 ## Comandos
 
 ```bash
-npm run dev:all      # API (:8899) + front (:5180) juntos; Ctrl+C para ambos
+npm run dev:all      # API (:8899, --reload sobre src/ del core) + front (:5180); Ctrl+C para ambos
 npm run dev          # http://localhost:5180, proxy /api → :8899 (SYNOPSIS_API para otro destino)
 npm run build        # tsc -b + vite build
 npx oxlint src       # lint
