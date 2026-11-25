@@ -26,8 +26,11 @@ metadata:
 | `GET /options/spx/summary` | `basis`, `max_days`, `refresh` | `core/options/services/chain_analytics` |
 | `GET /options/spx/expiries/{date}` | `basis`, `band` | `expiry_detail` |
 | `GET /options/spx/vol-context` | `bars` | `core/options/services/vol_context` |
-| `GET /strategy-lab/catalog` | — | plantillas `config/strategy_lab/*.yaml` + instrumentos `price` del catálogo |
-| `POST /strategy-lab/backtest` | cuerpo `BacktestRequestDTO` | `core/strategy_lab/services/backtester` (422 = valores rechazados, en palabras) |
+| `GET /strategy-lab/catalog` | — | plantillas `config/strategy_lab/*.yaml` + guardadas `user/*.yaml` + instrumentos `price` + `vocabulary` del editor (con `starter`, `params`/`any_scale` por condición) + `warnings` |
+| `POST /strategy-lab/rules` | `{strategy, params}` o `{rules}` | composición editable + textos + series (etiqueta/escala) + calentamiento; 422 en palabras |
+| `POST /strategy-lab/strategies` | `{label, description, rules, based_on, replace_id}` | escribe `config/strategy_lab/user/<id>.yaml`; 409 si el nombre existe |
+| `DELETE /strategy-lab/strategies/{id}` | — | solo estrategias `origin: user` (204) |
+| `POST /strategy-lab/backtest` | `BacktestRequestDTO`: `{strategy, params}` o `{rules, label}` | `core/strategy_lab/services/backtester` (422 = valores rechazados, en palabras); devuelve `rules` |
 
 Claves de instrumento: `TICKER@MIC` (`^SPX@CBOE`), `ratio:<code>`, `spread:<code>`.
 Siempre con `encodeURIComponent` (llevan `^`, `=` y `@`).

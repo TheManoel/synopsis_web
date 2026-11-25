@@ -353,7 +353,7 @@ export interface RelativeLine {
 // ---------------------------------------------------------------- strategy lab
 
 export type EntryPoint = 'open_t1' | 'close_t'
-export type ParamValue = number | string
+export type ParamValue = number | string | boolean
 
 export interface StrategyParam {
   name: string
@@ -376,6 +376,121 @@ export interface StrategyTemplate {
   params: StrategyParam[]
   /** Relations between params, in words. */
   constraints: string[]
+  /** builtin = shipped template (read-only); user = saved from the editor. */
+  origin: 'builtin' | 'user'
+  based_on: string | null
+}
+
+// -- rule editor: the vocabulary and the composition (src/core/strategy_lab/domain/rules.py)
+
+export type Scale = 'price' | 'points' | 'percent'
+
+/** A knob of a series kind (an average's period) or of a condition (a divergence's windows). */
+export interface KindParam {
+  name: string
+  label: string
+  type: 'int' | 'float' | 'choice' | 'bool'
+  default: ParamValue
+  min: number | null
+  max: number | null
+  choices: { value: string; label: string }[]
+  unit: string | null
+  /** Only used when another choice param takes one of these values; left out otherwise. */
+  applies_when?: Record<string, string[]> | null
+}
+
+export interface SeriesKind {
+  kind: string
+  label: string
+  description: string
+  params: KindParam[]
+  /** null = the scale of the series it is applied to (`of`). */
+  scale: Scale | null
+  accepts_of: boolean
+}
+
+export interface ConditionOp {
+  op: string
+  label: string
+  hint: string
+  operand: 'series_or_value' | 'series'
+  takes_pct: boolean
+  takes_bars: boolean
+  /** B can be a series of any scale (a divergence: oscillator against price). */
+  any_scale: boolean
+  /** The op's own knobs, as a series kind's. */
+  params: KindParam[]
+}
+
+export interface RulesVocabulary {
+  series_kinds: SeriesKind[]
+  conditions: ConditionOp[]
+  combinators: { value: Combinator; label: string }[]
+  sides: { value: string; label: string }[]
+  scales: { value: Scale; label: string; unit: string }[]
+  max_series: number
+  max_conditions: number
+  max_depth: number
+  max_bars: number
+  max_pct: number
+  /** Where a strategy written from scratch starts (rules the core accepts). */
+  starter: Composition
+}
+
+export type Combinator = 'all' | 'any'
+
+export interface SeriesDef {
+  id: string
+  kind: string
+  params: Record<string, ParamValue>
+  of?: string
+}
+
+/** B of a condition: another series or a number on A's scale. */
+export type Operand = { series: string } | { value: number | string }
+
+export interface RuleCondition {
+  a: string
+  op: string
+  b: Operand
+  pct?: number | string
+  bars?: number | string
+  /** The op's own knobs (only ops that have them). */
+  params?: Record<string, ParamValue>
+}
+
+export interface RuleGroup {
+  combinator: Combinator
+  conditions: (RuleCondition | RuleGroup)[]
+}
+
+export interface Composition {
+  side: string
+  series: SeriesDef[]
+  entry: RuleGroup
+  exit: RuleGroup
+}
+
+export interface RulesRequest {
+  strategy?: string
+  params?: Record<string, ParamValue>
+  rules?: Composition
+}
+
+export interface RulesPreview {
+  rules: Composition
+  entry_text: string
+  exit_text: string
+  series: { id: string; label: string; scale: Scale }[]
+  warmup_bars: number
+}
+
+export interface SaveStrategyRequest {
+  label: string
+  description: string
+  rules: Composition
+  based_on: string | null
+  replace_id: string | null
 }
 
 export interface LabInstrument {
@@ -394,11 +509,17 @@ export interface StrategyLabCatalog {
   default_entry_point: EntryPoint
   default_cost_bps: number
   max_cost_bps: number
+  vocabulary: RulesVocabulary
+  /** Saved strategies that could not be loaded, in words. */
+  warnings: string[]
 }
 
+/** A catalog strategy with its params, or hand-written `rules` (then `label` names them). */
 export interface BacktestRequest {
-  strategy: string
-  params: Record<string, ParamValue>
+  strategy?: string
+  params?: Record<string, ParamValue>
+  rules?: Composition
+  label?: string
   instrument: string
   start: string
   end: string
@@ -459,13 +580,16 @@ export interface BacktestSeries {
   benchmark_equity: (number | null)[]
   drawdown: (number | null)[]
   benchmark_drawdown: (number | null)[]
-  overlays: { id: string; label: string; values: (number | null)[] }[]
+  overlays: { id: string; label: string; scale: Scale; values: (number | null)[] }[]
 }
 
 export interface Backtest {
+  /** "custom" for hand-written rules. */
   strategy_id: string
   strategy_label: string
   params: Record<string, ParamValue>
+  /** The rules that ran, as the editor edits them. */
+  rules: Composition
   side: 'long' | 'short'
   entry_text: string
   exit_text: string

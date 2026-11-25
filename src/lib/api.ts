@@ -1,4 +1,4 @@
-import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   Backtest,
   BacktestRequest,
@@ -13,8 +13,12 @@ import type {
   RelativeLine,
   RotationBoard,
   RotationUniverseRef,
+  RulesPreview,
+  RulesRequest,
+  SaveStrategyRequest,
   Section,
   StrategyLabCatalog,
+  StrategyTemplate,
   Timeframe,
   VolContext,
 } from './types'
@@ -35,6 +39,10 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 }
 
+async function del(path: string): Promise<void> {
+  await request<void>(path, { method: 'DELETE' })
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api/v2${path}`, init)
   if (!res.ok) {
@@ -52,6 +60,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(res.status, detail)
   }
+  if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
@@ -163,3 +172,34 @@ export const useBacktest = (req: BacktestRequest | null) =>
     staleTime: 15 * 60_000,
     retry: 0,
   })
+
+/** The rules as the editor edits them, with the core's sentences: a template
+ *  opened for editing, or the editor's own rules checked as they are typed. */
+export const useRulesPreview = (req: RulesRequest | null) =>
+  useQuery({
+    queryKey: ['strategy-lab', 'rules', req],
+    queryFn: () => post<RulesPreview>('/strategy-lab/rules', req),
+    enabled: !!req,
+    placeholderData: keepPreviousData,
+    staleTime: Infinity,
+    retry: 0,
+  })
+
+export const fetchRules = (req: RulesRequest) => post<RulesPreview>('/strategy-lab/rules', req)
+
+/** Saves (or overwrites) a user strategy; the catalog is reloaded. */
+export function useSaveStrategy() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (req: SaveStrategyRequest) => post<StrategyTemplate>('/strategy-lab/strategies', req),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['strategy-lab', 'catalog'] }),
+  })
+}
+
+export function useDeleteStrategy() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => del(`/strategy-lab/strategies/${enc(id)}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['strategy-lab', 'catalog'] }),
+  })
+}

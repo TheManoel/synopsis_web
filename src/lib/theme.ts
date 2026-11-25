@@ -44,3 +44,7 @@ export function useCssVars<K extends string>(names: readonly K[]): Record<K, str
 }
 
 export const SERIES_VARS = ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'] as const
+
+/** The fixed series colour of position `i` (--s1…--s8): a series keeps its
+ *  colour wherever it is drawn. */
+export const seriesColor = (i: number) => `var(--s${(i % 8) + 1})`

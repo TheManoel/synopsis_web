@@ -24,13 +24,14 @@ API_ONLY=1 poetry run uvicorn src.applications.signal_lab.web.app:create_app --f
   `format.ts` (formato es-ES y por unidad), `theme.ts` (tema y variables CSS para canvas)
 - `src/components/` — `Shell` (navegación + cinta), `ui.tsx` (primitivas), `charts/`
   (`TimeChart` series temporales multipanel; `xy.tsx` gráficos SVG: líneas y barras por strike;
-  `RotationMap` RRG en SVG)
+  `RotationMap` RRG en SVG), `strategy/RulesEditor` (editor de reglas del Strategy Lab)
 - `src/pages/` — `MarketSectionPage` (índices, materias primas, divisas y bonos),
   `BreadthPage` (NYSE), `GroupsPage` (grupos y rotación, RRG), `OptionsPage` (PoC SPX),
   `StrategyLabPage` (plantillas de estrategia y backtest)
 - Backend de este front en el core: `src/applications/synopsis/` (rutas + servicios),
   `src/core/markets/`, `src/core/options/`, `src/core/strategy_lab/`, `config/markets/catalog.yaml`,
-  `config/markets/rotation.yaml` (universos de grupos), `config/strategy_lab/*.yaml` (estrategias)
+  `config/markets/rotation.yaml` (universos de grupos), `config/strategy_lab/*.yaml` (plantillas;
+  `user/` = estrategias guardadas desde el editor)
 
 ## Reglas
 
