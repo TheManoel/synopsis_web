@@ -16,6 +16,7 @@ import {
 } from 'lightweight-charts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCssVars } from '../../lib/theme'
+import { ZonesPrimitive, type ZoneBox } from './zonePrimitive'
 
 export type Pt = { time: string; value: number | null }
 
@@ -29,8 +30,9 @@ export interface Marker {
 }
 
 export type SeriesSpec =
-  | { type: 'candles'; id: string; label: string; data: { time: string; open: number; high: number; low: number; close: number }[]; format?: (v: number) => string }
-  | { type: 'line'; id: string; label: string; data: Pt[]; color: string; width?: 1 | 2 | 3; dashed?: boolean; format?: (v: number) => string; markers?: Marker[] }
+  | { type: 'candles'; id: string; label: string; data: { time: string; open: number; high: number; low: number; close: number }[]; format?: (v: number) => string; markers?: Marker[] }
+  /** `hidden`: no line, only its value in the legend (a level drawn as zones). */
+  | { type: 'line'; id: string; label: string; data: Pt[]; color: string; width?: 1 | 2 | 3; dashed?: boolean; hidden?: boolean; format?: (v: number) => string; markers?: Marker[] }
   | { type: 'histogram'; id: string; label: string; data: Pt[]; color: string; negativeColor?: string; format?: (v: number) => string }
 
 export interface PaneSpec {
@@ -41,6 +43,16 @@ export interface PaneSpec {
   levels?: { value: number; label?: string; color?: string }[] // value shown on the price axis
   /** Logarithmic price scale: equal moves in % look equal (long histories). */
   logScale?: boolean
+  /** Zones drawn over the pane's first series (ceilings/floors); hovering a
+   * session shows the text of the zones it falls in. */
+  zones?: ZoneLayer[]
+}
+
+export interface ZoneLayer {
+  id: string
+  label: string
+  color: string
+  boxes: (ZoneBox & { text: string })[]
 }
 
 const THEME_VARS = ['surface', 'ink-2', 'ink-3', 'grid', 'axis', 'up', 'down', 'line-strong'] as const
@@ -114,12 +126,18 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
             paneIndex,
           )
           api.setData(s.data.map((d) => ({ ...d, time: d.time as Time })))
+          if (s.markers?.length)
+            createSeriesMarkers(
+              api,
+              s.markers.map((mk) => ({ ...mk, time: mk.time as Time, color: resolve(mk.color), size: 1 })),
+            )
         } else if (s.type === 'line') {
           api = chart.addSeries(
             LineSeries,
             {
               color: resolve(s.color), lineWidth: s.width ?? 2, lineStyle: s.dashed ? LineStyle.Dashed : LineStyle.Solid,
-              priceLineVisible: false, lastValueVisible: i === 0, crosshairMarkerRadius: 3,
+              priceLineVisible: false, lastValueVisible: i === 0 && !s.hidden, crosshairMarkerRadius: 3,
+              lineVisible: !s.hidden, crosshairMarkerVisible: !s.hidden,
               ...(priceFormat ? { priceFormat } : {}),
             },
             paneIndex,
@@ -145,6 +163,8 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
           )
         }
         byId.set(s.id, api)
+        if (i === 0)
+          for (const layer of pane.zones ?? []) api.attachPrimitive(new ZonesPrimitive(layer.boxes, resolve(layer.color), vars.surface))
         if (i === 0)
           for (const lv of pane.levels ?? [])
             api.createPriceLine({
@@ -184,6 +204,16 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
   }, [panes, vars])
 
   const shown = hover.time ? hover.values : lastValues
+  // The zones under the hovered session, said in the core's words.
+  const hoveredZones = useMemo(() => {
+    const t = hover.time
+    if (!t) return []
+    return panes.flatMap((p) =>
+      (p.zones ?? []).flatMap((layer) =>
+        layer.boxes.filter((b) => b.from <= t && t <= b.to).map((b) => ({ key: `${layer.id}-${b.from}-${b.start}`, color: layer.color, label: layer.label, text: b.text })),
+      ),
+    )
+  }, [hover.time, panes])
   return (
     <div className={className}>
       <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
@@ -204,6 +234,18 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
           }),
         )}
       </div>
+      {panes.some((p) => p.zones?.length) && (
+        <div className="mb-2 min-h-[2.5em] space-y-0.5 text-[11px] leading-snug text-ink-2">
+          {hoveredZones.length
+            ? hoveredZones.map((z) => (
+                <div key={z.key} className="flex items-start gap-1.5">
+                  <span className="mt-[5px] h-[3px] w-3 shrink-0 rounded-full" style={{ background: z.color }} aria-hidden />
+                  <span>{z.text}</span>
+                </div>
+              ))
+            : <span className="text-ink-3">Pasa el cursor por una zona para ver cómo se forma: sus toques, desde cuándo es el nivel y por qué deja de serlo.</span>}
+        </div>
+      )}
       <div ref={host} style={{ height }} className="w-full" />
     </div>
   )

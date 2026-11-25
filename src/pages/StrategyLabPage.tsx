@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { FlaskConical, LoaderCircle, Pencil, Play, Plus, Save, Trash2, Undo2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { TimeChart, type Marker, type PaneSpec, type Pt, type SeriesSpec } from '../components/charts/TimeChart'
+import { TimeChart, type Marker, type PaneSpec, type Pt, type SeriesSpec, type ZoneLayer } from '../components/charts/TimeChart'
 import { RulesEditor } from '../components/strategy/RulesEditor'
 import { Card, ErrorState, InfoTip, PageHeader, Pill, Segmented, Skeleton, Warnings } from '../components/ui'
 import { fetchRules, useBacktest, useDeleteStrategy, useRulesPreview, useSaveStrategy, useStrategyLabCatalog } from '../lib/api'
@@ -9,6 +9,7 @@ import { DASH, fmtDate, fmtLevel, fmtNum, fmtPct } from '../lib/format'
 import { seriesColor } from '../lib/theme'
 import type {
   Backtest,
+  Overlay,
   BacktestRequest,
   Composition,
   EntryPoint,
@@ -502,22 +503,44 @@ function PriceCard({ r }: { r: Backtest }) {
       .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
     // The colour follows the series: its place in the rules, as in the editor.
     const order = new Map(r.rules.series.map((x, i) => [x.id, i]))
-    const line = (o: Backtest['series']['overlays'][number], fmt: (v: number) => string): SeriesSpec => ({
+    const color = (o: Overlay) => seriesColor(order.get(o.id) ?? 0)
+    // A ceiling/floor is drawn as its zones: its line only gives the legend its value.
+    const line = (o: Overlay, fmt: (v: number) => string): SeriesSpec => ({
       type: 'line',
       id: o.id,
       label: o.label,
       data: column(s.dates, o.values),
-      color: seriesColor(order.get(o.id) ?? 0),
+      color: color(o),
       width: 1,
+      hidden: o.shape === 'zones',
       format: fmt,
     })
+    const candles = s.dates.flatMap((time, i) => {
+      const [open, high, low, close] = [s.open[i], s.high[i], s.low[i], s.price[i]]
+      return open == null || high == null || low == null || close == null ? [] : [{ time, open, high, low, close }]
+    })
+    const onPrice = s.overlays.filter((o) => o.scale === 'price')
+    const zones: ZoneLayer[] = onPrice
+      .filter((o) => o.shape === 'zones')
+      .map((o) => ({
+        id: o.id,
+        label: o.label,
+        color: color(o),
+        boxes: o.zones.map((z) => ({
+          from: z.first_touch, start: z.start, breakAt: z.break_date, to: z.end,
+          lower: z.lower, upper: z.upper,
+          touches: z.touches.map((t) => ({ time: t.date, value: t.price })),
+          text: z.text,
+        })),
+      }))
     return [
       {
         logScale: scale === 'log',
         stretch: 2.4,
+        zones,
         series: [
-          { type: 'line', id: 'px', label: r.instrument_label, data: column(s.dates, s.price), color: 'var(--ink-2)', width: 1, markers, format: (v) => fmtLevel(v) },
-          ...s.overlays.filter((o) => o.scale === 'price').map((o) => line(o, (v) => fmtLevel(v))),
+          { type: 'candles', id: 'px', label: r.instrument_label, data: candles, markers, format: (v) => fmtLevel(v) },
+          ...onPrice.map((o) => line(o, (v) => fmtLevel(v))),
         ],
       },
       ...SCALE_PANES.flatMap((p) => {
@@ -533,6 +556,9 @@ function PriceCard({ r }: { r: Backtest }) {
         <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="inline-flex items-center gap-1"><span className="text-up">▲</span> entrada</span>
           <span className="inline-flex items-center gap-1"><span className="text-down">▼</span> salida</span>
+          {r.series.overlays.some((o) => o.shape === 'zones') && (
+            <span>Techo/suelo: discontinuo mientras se forma, sólido desde que es el nivel (marca vertical), discontinuo tras la ruptura; los puntos son sus toques.</span>
+          )}
           <span>Ejecuciones en la sesión en que se llenan, no en la de la señal.</span>
         </span>
       }

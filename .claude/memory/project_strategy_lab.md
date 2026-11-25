@@ -54,6 +54,13 @@ ruptura) → señal 13-oct. El usuario lo resolvió así (2026-11-25), retirando
   duración (100 ⇒ 2N). SPX 2010 en cierres, intervalo 40: techo 1117,51 desde el 29-jul (el libro
   por recencia daba la zona interior 1099-1106). Rectángulo/triángulo como series: más adelante.
 
+**Gráfico de precio = velas** (2026-11-25). Un techo/suelo (`overlay.shape == 'zones'`) no se
+pinta como línea: `TimeChart` recibe `pane.zones` y `ZonesPrimitive` (`charts/zonePrimitive.ts`,
+primitiva de serie de lightweight-charts) dibuja cada episodio del core —discontinuo mientras se
+forma, sólido desde que es el nivel (marca vertical), discontinuo tras la ruptura— y un punto por
+toque. Su línea queda oculta (`hidden`) solo para el valor de la leyenda; al pasar el cursor se
+muestra el `text` del episodio (lo redacta el core). Velas y marcadores: `candles` admite `markers`.
+
 **Params condicionales**: `KindParam.applies_when = (param, valores)` (DTO `{param: [valores]}`);
 el core rechaza un param que no aplica, el front lo oculta y lo quita (`settle` en RulesEditor).
 

@@ -572,15 +572,45 @@ export interface BacktestYear {
   max_drawdown_pct: number | null
 }
 
+/** One stretch during which a zone is the ceiling/floor the rules read: it
+ * forms from `first_touch`, is the level from `start` to `end`, breaks at
+ * `break_date` (then lives its life after the break, band frozen). */
+export interface ZoneEpisode {
+  first_touch: string
+  start: string
+  end: string
+  break_date: string | null
+  lower: number
+  upper: number
+  touches: { date: string; price: number }[]
+  end_reason: 'open' | 'replaced' | 'interval' | 'wick' | 'life' | 'merged' | 'zone'
+  /** The episode in words (the core writes it). */
+  text: string
+}
+
+export interface Overlay {
+  id: string
+  label: string
+  scale: Scale
+  values: (number | null)[]
+  /** line: draw the values; zones: draw `zones` (a ceiling/floor). */
+  shape: 'line' | 'zones'
+  zones: ZoneEpisode[]
+}
+
 /** Every daily series on one calendar (columnar); null = no value that day. */
 export interface BacktestSeries {
   dates: string[]
   price: (number | null)[]
+  /** The rest of the bar (the candles). */
+  open: (number | null)[]
+  high: (number | null)[]
+  low: (number | null)[]
   equity: (number | null)[]
   benchmark_equity: (number | null)[]
   drawdown: (number | null)[]
   benchmark_drawdown: (number | null)[]
-  overlays: { id: string; label: string; scale: Scale; values: (number | null)[] }[]
+  overlays: Overlay[]
 }
 
 export interface Backtest {
