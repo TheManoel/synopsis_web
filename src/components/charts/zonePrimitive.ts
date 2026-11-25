@@ -11,30 +11,28 @@ import type {
 
 /**
  * A horizontal zone (a ceiling or a floor) as the core sends it: it forms from
- * `from` (its first touch), is the level the rules read from `start`, breaks at
- * `breakAt` and stops being the level after `to`. Dates are sessions of the
- * chart's series. Nothing here is computed: the core decides every edge.
+ * `from` (its first point) and is the level the rules read from `start` to
+ * `to`. Dates are sessions of the chart's series. Nothing here is computed:
+ * the core decides every edge.
  */
 export interface ZoneBox {
   from: string
   start: string
-  breakAt: string | null
   to: string
   lower: number
   upper: number
-  touches: { time: string; value: number }[]
+  points: { time: string; value: number }[]
 }
 
 type Target = Parameters<IPrimitivePaneRenderer['draw']>[0]
 
-/** Three stretches, drawn differently: forming (not known yet), the level, after the break. */
+/** Two stretches, drawn differently: forming (not the level yet), the level. */
 const FORMING = { fill: 0.07, edge: 0.55, dash: [3, 3] }
 const LEVEL = { fill: 0.2, edge: 1, dash: [] as number[] }
-const AFTER_BREAK = { fill: 0.07, edge: 0.55, dash: [3, 3] }
 
 /**
  * Draws zones over a series (its price scale): a box per stretch and a dot per
- * touch, the points that form the zone. Attached to the price pane's candles.
+ * point that forms the zone. Attached to the price pane's candles.
  */
 export class ZonesPrimitive implements ISeriesPrimitive<Time> {
   private chart: IChartApiBase<Time> | null = null
@@ -90,7 +88,6 @@ export class ZonesPrimitive implements ISeriesPrimitive<Time> {
         const bottom = Math.max(yBottom, mid + 1)
 
         const xs = x(b.start) ?? x0
-        const xb = b.breakAt ? (x(b.breakAt) ?? x1) : null
         const stretch = (from: number, to: number, look: typeof LEVEL) => {
           if (to <= from) return
           ctx.globalAlpha = look.fill
@@ -108,8 +105,7 @@ export class ZonesPrimitive implements ISeriesPrimitive<Time> {
           ctx.stroke()
         }
         stretch(x0 - half, xs - half, FORMING)
-        stretch(xs - half, (xb ?? x1 + 2 * half) - half, LEVEL)
-        if (xb != null) stretch(xb - half, x1 + half, AFTER_BREAK)
+        stretch(xs - half, x1 + half, LEVEL)
         // Where it becomes the level: a tick across the band.
         ctx.globalAlpha = 1
         ctx.setLineDash([])
@@ -118,7 +114,7 @@ export class ZonesPrimitive implements ISeriesPrimitive<Time> {
         ctx.lineTo(Math.round(xs - half) + 0.5, bottom + 3)
         ctx.stroke()
 
-        for (const t of b.touches) {
+        for (const t of b.points) {
           const tx = x(t.time)
           const ty = y(t.value)
           if (tx == null || ty == null) continue

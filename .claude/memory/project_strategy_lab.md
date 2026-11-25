@@ -28,7 +28,7 @@ antes de que nada los lea: tabla = estadísticas = equity).
 Series (precio, SMA/EMA —también sobre otra serie, `of`—, RSI, ROC %, máx./mín. de las N sesiones
 *anteriores* —del máximo/mínimo o de otra serie; con «Anclar el nivel»—, zona de puntos
 (`zone` → `point_zone`: cualquier congestión de máximos/mínimos), techo / suelo (`extreme` →
-`extreme_zone`: la zona extrema del intervalo), banda de Bollinger sup./media/inf. (SMA ± k·σ
+`extreme_zone`: los K máximos más altos del intervalo dentro de la tolerancia, centroide ± tolerancia), banda de Bollinger sup./media/inf. (SMA ± k·σ
 poblacional; admite `of`), anchura de Bollinger (`bb_width`, %, solo precio), percentil de N
 sesiones (0–100, `percentile` del motor contra una línea cero ×100)), cada una con su escala (`price`/`points`/`percent`: solo se comparan series de la
 misma escala). Condiciones: cruza por encima/debajo, por encima/debajo, `distance_above/below`
@@ -48,17 +48,17 @@ ruptura) → señal 13-oct. El usuario lo resolvió así (2026-11-25), retirando
   antes de la racha (mín(A, K) > máx. de las N sesiones anteriores a las K). Solo como B; sin `of`
   (el front no ofrece una serie anclada en «sobre»).
 - **Nivel → techo/suelo → estrategia** (usuario 2026-11-25). «Zona de puntos» = cualquier
-  congestión de los puntos del detector a la tolerancia (zonas a 100, 97, 94, 90: todas). «Techo /
-  suelo» = la zona extrema del intervalo (100 techo, 90 suelo; las otras no): sin cierres encima en
-  el intervalo, mechas hasta X ATR. Ambas: borde sup./centro/inf., vida tras la ruptura en % de su
-  duración (100 ⇒ 2N). SPX 2010 en cierres, intervalo 40: techo 1117,51 desde el 29-jul (el libro
-  por recencia daba la zona interior 1099-1106). Rectángulo/triángulo como series: más adelante.
+  congestión de los puntos del detector a la tolerancia (zonas a 100, 97, 94, 90: todas), con
+  vida tras la ruptura. «Techo / suelo» = los K puntos más extremos del intervalo si el K-ésimo
+  está a la tolerancia del más extremo; zona = centroide ± tolerancia; nada más (sin toques,
+  rupturas ni vida: el usuario pidió no sobrediseñar). SPX 2010 en máximos, 40 ses., K=2:
+  21-jun + 9-ago. Rectángulo/triángulo como series: más adelante.
 
 **Gráfico de precio = velas** (2026-11-25). Un techo/suelo (`overlay.shape == 'zones'`) no se
 pinta como línea: `TimeChart` recibe `pane.zones` y `ZonesPrimitive` (`charts/zonePrimitive.ts`,
 primitiva de serie de lightweight-charts) dibuja cada episodio del core —discontinuo mientras se
-forma, sólido desde que es el nivel (marca vertical), discontinuo tras la ruptura— y un punto por
-toque. Su línea queda oculta (`hidden`) solo para el valor de la leyenda; al pasar el cursor se
+forma (desde su primer punto), sólido desde que es el nivel (marca vertical)— y un punto por cada
+máximo (mínimo) que lo forma. Su línea queda oculta (`hidden`) solo para el valor de la leyenda; al pasar el cursor se
 muestra el `text` del episodio (lo redacta el core). Velas y marcadores: `candles` admite `markers`.
 
 **Params condicionales**: `KindParam.applies_when = (param, valores)` (DTO `{param: [valores]}`);

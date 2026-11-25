@@ -243,7 +243,7 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
                   <span>{z.text}</span>
                 </div>
               ))
-            : <span className="text-ink-3">Pasa el cursor por una zona para ver cómo se forma: sus toques, desde cuándo es el nivel y por qué deja de serlo.</span>}
+            : <span className="text-ink-3">Pasa el cursor por una zona para ver cómo se forma: sus puntos, desde cuándo es el nivel y por qué deja de serlo.</span>}
         </div>
       )}
       <div ref={host} style={{ height }} className="w-full" />

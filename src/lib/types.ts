@@ -572,18 +572,19 @@ export interface BacktestYear {
   max_drawdown_pct: number | null
 }
 
-/** One stretch during which a zone is the ceiling/floor the rules read: it
- * forms from `first_touch`, is the level from `start` to `end`, breaks at
- * `break_date` (then lives its life after the break, band frozen). */
+/** One stretch during which the ceiling/floor the rules read has the same
+ * points: it forms from `first_point` and is the level from `start` to `end`;
+ * the zone is the centroid ± the tolerance (`lower`…`upper`). */
 export interface ZoneEpisode {
-  first_touch: string
+  first_point: string
   start: string
   end: string
-  break_date: string | null
   lower: number
+  centroid: number
   upper: number
-  touches: { date: string; price: number }[]
-  end_reason: 'open' | 'replaced' | 'interval' | 'wick' | 'life' | 'merged' | 'zone'
+  points: { date: string; price: number }[]
+  /** interval: one of its points leaves it; new_point: a new one changes the K. */
+  end_reason: 'open' | 'interval' | 'new_point'
   /** The episode in words (the core writes it). */
   text: string
 }

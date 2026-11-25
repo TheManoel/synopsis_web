@@ -527,9 +527,9 @@ function PriceCard({ r }: { r: Backtest }) {
         label: o.label,
         color: color(o),
         boxes: o.zones.map((z) => ({
-          from: z.first_touch, start: z.start, breakAt: z.break_date, to: z.end,
+          from: z.first_point, start: z.start, to: z.end,
           lower: z.lower, upper: z.upper,
-          touches: z.touches.map((t) => ({ time: t.date, value: t.price })),
+          points: z.points.map((t) => ({ time: t.date, value: t.price })),
           text: z.text,
         })),
       }))
@@ -557,7 +557,7 @@ function PriceCard({ r }: { r: Backtest }) {
           <span className="inline-flex items-center gap-1"><span className="text-up">▲</span> entrada</span>
           <span className="inline-flex items-center gap-1"><span className="text-down">▼</span> salida</span>
           {r.series.overlays.some((o) => o.shape === 'zones') && (
-            <span>Techo/suelo: discontinuo mientras se forma, sólido desde que es el nivel (marca vertical), discontinuo tras la ruptura; los puntos son sus toques.</span>
+            <span>Techo/suelo: centroide ± tolerancia; discontinuo desde su primer punto, sólido desde que es el nivel (marca vertical); los puntos son los máximos (mínimos) que lo forman.</span>
           )}
           <span>Ejecuciones en la sesión en que se llenan, no en la de la señal.</span>
         </span>
