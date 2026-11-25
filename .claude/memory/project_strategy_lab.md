@@ -27,7 +27,8 @@ antes de que nada los lea: tabla = estadísticas = equity).
 **Reglas compuestas** (`domain/rules.py`): vocabulario cerrado propio del lab, no el grafo crudo.
 Series (precio, SMA/EMA —también sobre otra serie, `of`—, RSI, ROC %, máx./mín. de las N sesiones
 *anteriores* —del máximo/mínimo o de otra serie; con «Anclar el nivel»—, zona de puntos
-(`zone` → `point_zone` del motor: techo/suelo de los puntos del detector), banda de Bollinger sup./media/inf. (SMA ± k·σ
+(`zone` → `point_zone`: cualquier congestión de máximos/mínimos), techo / suelo (`extreme` →
+`extreme_zone`: la zona extrema del intervalo), banda de Bollinger sup./media/inf. (SMA ± k·σ
 poblacional; admite `of`), anchura de Bollinger (`bb_width`, %, solo precio), percentil de N
 sesiones (0–100, `percentile` del motor contra una línea cero ×100)), cada una con su escala (`price`/`points`/`percent`: solo se comparan series de la
 misma escala). Condiciones: cruza por encima/debajo, por encima/debajo, `distance_above/below`
@@ -46,10 +47,12 @@ ruptura) → señal 13-oct. El usuario lo resolvió así (2026-11-25), retirando
 - **Ancla** (casilla, `KindParam` tipo `bool`): en una condición de K sesiones el nivel es el de
   antes de la racha (mín(A, K) > máx. de las N sesiones anteriores a las K). Solo como B; sin `of`
   (el front no ofrece una serie anclada en «sobre»).
-- **Zona de puntos**: congestión de los puntos del detector (pivotes / giros HMA) por tolerancia
-  (ATR o %), toques mínimos, hueco máximo entre toques, duración mín./máx.; borde sup./centro/inf.;
-  vive tras la ruptura un % de su duración (100 ⇒ 2N). Dos cierres sobre el techo se miden contra el
-  mismo nivel. Rectángulo/triángulo como series: más adelante.
+- **Nivel → techo/suelo → estrategia** (usuario 2026-11-25). «Zona de puntos» = cualquier
+  congestión de los puntos del detector a la tolerancia (zonas a 100, 97, 94, 90: todas). «Techo /
+  suelo» = la zona extrema del intervalo (100 techo, 90 suelo; las otras no): sin cierres encima en
+  el intervalo, mechas hasta X ATR. Ambas: borde sup./centro/inf., vida tras la ruptura en % de su
+  duración (100 ⇒ 2N). SPX 2010 en cierres, intervalo 40: techo 1117,51 desde el 29-jul (el libro
+  por recencia daba la zona interior 1099-1106). Rectángulo/triángulo como series: más adelante.
 
 **Params condicionales**: `KindParam.applies_when = (param, valores)` (DTO `{param: [valores]}`);
 el core rechaza un param que no aplica, el front lo oculta y lo quita (`settle` en RulesEditor).
