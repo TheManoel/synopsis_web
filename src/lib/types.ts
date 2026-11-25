@@ -646,3 +646,232 @@ export interface Backtest {
   warnings: string[]
   generated_at: string
 }
+
+// ---------------------------------------------------------------- symbols
+
+export type IndicatorUnit = 'price' | 'percent' | 'oscillator' | 'points' | 'volume' | 'index' | 'percentile'
+export type Timeframe3 = 'd' | 'w' | 'm'
+
+export interface IndicatorParam {
+  key: string
+  label: string
+  kind: 'int' | 'float' | 'choice'
+  default: number | string
+  min: number | null
+  max: number | null
+  step: number | null
+  choices: { value: string; label: string }[]
+}
+
+export interface IndicatorDef {
+  id: string
+  label: string
+  group: string
+  placement: 'overlay' | 'pane'
+  unit: IndicatorUnit
+  description: string
+  params: IndicatorParam[]
+  outputs: { key: string; label: string; style: 'line' | 'dashed' | 'histogram' }[]
+  levels: number[]
+  needs_benchmark: boolean
+  stored: boolean
+  default_spec: string
+}
+
+export interface IndicatorCatalog {
+  groups: { title: string; indicators: IndicatorDef[] }[]
+  default_specs: string[]
+  timeframes: { value: string; label: string }[]
+  ranges: { value: string; label: string }[]
+}
+
+export interface SymbolHit {
+  key: string
+  ticker: string
+  exchange: string
+  name: string | null
+  asset_type: string | null
+  active: boolean
+  country: string | null
+  currency: string | null
+}
+
+export interface WatchItem {
+  key: string
+  ticker: string
+  name: string | null
+  asset_type: string | null
+  kind: Kind
+  last: number | null
+  as_of: string | null
+  change_1d: number | null
+  change_1m: number | null
+  ytd: number | null
+  trend: InstrumentCard['trend']
+  spark: number[]
+  warnings: string[]
+}
+
+export interface Watchlist {
+  items: WatchItem[]
+  warnings: string[]
+}
+
+export interface TaxonomyRef {
+  code: string
+  name: string
+}
+
+export interface SymbolReference {
+  role: 'index' | 'sector' | 'industry'
+  key: string
+  label: string
+}
+
+export interface HorizonMove {
+  horizon: string
+  start: string | null
+  ret: number | null
+  /** Move of the RS line (asset / reference), %. */
+  relative: number | null
+}
+
+export interface RelativeRow {
+  role: string
+  key: string
+  label: string
+  moves: HorizonMove[]
+}
+
+export interface RelativeTable {
+  horizons: string[]
+  asset: RelativeRow
+  references: RelativeRow[]
+  note: string
+}
+
+export interface RsLensReading {
+  key: string
+  label: string
+  percentile: number | null
+  change_1m: number | null
+  within_sector: number | null
+  within_industry: number | null
+  ret: number | null
+  excess: number | null
+  n_ranked: number | null
+}
+
+export interface RsRank {
+  universe_code: string
+  universe_label: string
+  benchmark_label: string
+  as_of: string
+  lenses: RsLensReading[]
+  price_from_high: number | null
+  rs_line_from_high: number | null
+  reading: string
+  warnings: string[]
+}
+
+export interface StageSegment {
+  stage: string
+  label: string
+  start: string
+  end: string
+}
+
+export interface StageInfo {
+  stage: string
+  label: string
+  meaning: string
+  conviction: number
+  since: string
+  base_count: number
+  base_note: string
+  contested: boolean
+  leader: string | null
+  leader_label: string | null
+  scores: { stage: string; label: string; score: number }[]
+  segments: StageSegment[]
+  benchmark_label: string | null
+  note: string
+}
+
+export interface TechnicalReading {
+  code: string
+  label: string
+  value: number | null
+  unit: 'percent' | 'oscillator' | 'ratio' | 'price'
+  text: string
+  tone: 'up' | 'down' | 'warn' | 'neutral'
+}
+
+export interface EarningsRow {
+  date: string
+  eps: number | null
+  estimate: number | null
+  surprise_pct: number | null
+  yoy_pct: number | null
+}
+
+export interface SymbolProfile {
+  key: string
+  ticker: string
+  exchange: string
+  name: string
+  asset_type: string | null
+  currency: string | null
+  country: string | null
+  status: string | null
+  successor: string | null
+  sector: TaxonomyRef | null
+  industry: TaxonomyRef | null
+  universes: TaxonomyRef[]
+  reading: InstrumentCard
+  technicals: TechnicalReading[]
+  references: SymbolReference[]
+  relative: RelativeTable | null
+  rs_rank: RsRank | null
+  stage: StageInfo | null
+  earnings: { last: EarningsRow[]; next_date: string | null; warnings: string[] } | null
+  warnings: string[]
+}
+
+export interface ChartEvent {
+  time: string
+  kind: 'earnings'
+  label: string
+  text: string
+}
+
+export interface SymbolChart {
+  key: string
+  label: string
+  timeframe: Timeframe3
+  range: string
+  dates: string[]
+  open: number[]
+  high: number[]
+  low: number[]
+  close: number[]
+  volume: (number | null)[]
+  has_ohlc: boolean
+  has_volume: boolean
+  last_bar_partial: boolean
+  events: ChartEvent[]
+  warnings: string[]
+}
+
+export interface IndicatorSeries {
+  spec: string
+  id: string
+  label: string
+  placement: 'overlay' | 'pane'
+  unit: IndicatorUnit
+  levels: number[]
+  dates: string[]
+  lines: { key: string; label: string; style: 'line' | 'dashed' | 'histogram'; values: (number | null)[] }[]
+  reference: SymbolReference | null
+  warnings: string[]
+}

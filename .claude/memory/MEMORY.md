@@ -18,4 +18,5 @@
 
 - [Grupos y rotación](project_groups_rotation.md) — RRG por universo, dos referencias (cesta vs índice), participación lenta en frío
 - [Opciones (PoC SPX)](project_options_poc.md) — fuente, método, supuestos y limitaciones de la cadena
+- [Símbolos](project_symbols.md) — análisis gráfico de un activo: indicadores del core por spec, watchlist YAML, ⌘K, fuerza relativa, etapa
 - [Strategy Lab](project_strategy_lab.md) — estrategias como plantillas de reglas, backtest vs comprar y mantener, Golden Cross

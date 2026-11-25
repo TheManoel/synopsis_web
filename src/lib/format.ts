@@ -92,3 +92,28 @@ export function tone(v: number | null | undefined): 'up' | 'down' | 'flat' {
   if (v == null || !Number.isFinite(v) || v === 0) return 'flat'
   return v > 0 ? 'up' : 'down'
 }
+
+/** A value in an indicator's unit (see `IndicatorUnit`). */
+export function fmtUnit(v: number | null | undefined, unit: string): string {
+  if (v == null || !Number.isFinite(v)) return DASH
+  switch (unit) {
+    case 'price':
+      return fmtLevel(v)
+    case 'percent':
+      return `${nf(2, 2).format(v)}%`
+    case 'oscillator':
+    case 'percentile':
+      return nf(1, 1).format(v)
+    case 'volume':
+      return fmtCompact(v, 2)
+    case 'index':
+      return nf(2, 2).format(v)
+    default:
+      return nf(2, 2).format(v)
+  }
+}
+
+const ASSET_TYPES: Record<string, string> = {
+  STOCK: 'Acción', ETF: 'ETF', INDEX: 'Índice', FUTURE: 'Futuro', CURRENCY: 'Divisa', FUND: 'Fondo', CRYPTO: 'Cripto',
+}
+export const assetTypeLabel = (t: string | null | undefined) => (t ? (ASSET_TYPES[t.toUpperCase()] ?? t) : '')

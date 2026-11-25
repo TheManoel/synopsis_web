@@ -18,7 +18,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCssVars } from '../../lib/theme'
 import { ZonesPrimitive, type ZoneBox } from './zonePrimitive'
 
-export type Pt = { time: string; value: number | null }
+/** `color`: a histogram bar's own colour (volume by the session's sign). */
+export type Pt = { time: string; value: number | null; color?: string }
 
 /** An event drawn on a line series (an entry, an exit). Sorted by time. */
 export interface Marker {
@@ -69,8 +70,24 @@ function resolve(color: string): string {
  * The chart is rebuilt when the spec or theme changes: specs are small and
  * this keeps the component declarative.
  */
-export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[]; height?: number; className?: string }) {
+export function TimeChart({
+  panes,
+  height = 360,
+  className,
+  rangeKey,
+  notes,
+}: {
+  panes: PaneSpec[]
+  height?: number
+  className?: string
+  /** While it stays the same, a rebuilt chart keeps the visible range (adding an
+   * indicator does not reset the zoom); a new key fits the content again. */
+  rangeKey?: string
+  /** Text shown under the legend when the cursor is on that session (events). */
+  notes?: Record<string, string>
+}) {
   const host = useRef<HTMLDivElement>(null)
+  const saved = useRef<{ key: string; range: { from: number; to: number } } | null>(null)
   const vars = useCssVars(THEME_VARS)
   const [hover, setHover] = useState<{ time: string | null; values: Record<string, number | null> }>({ time: null, values: {} })
 
@@ -78,8 +95,13 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
     const out: Record<string, number | null> = {}
     for (const p of panes)
       for (const s of p.series) {
-        const last = s.data[s.data.length - 1] as { value?: number | null; close?: number } | undefined
-        out[s.id] = last ? (s.type === 'candles' ? (last.close ?? null) : (last.value ?? null)) : null
+        // The last known value: a series can end before the bars (a stored history that lags).
+        let v: number | null = null
+        for (let i = s.data.length - 1; i >= 0 && v == null; i--) {
+          const d = s.data[i] as { value?: number | null; close?: number }
+          v = s.type === 'candles' ? (d.close ?? null) : (d.value ?? null)
+        }
+        out[s.id] = v
       }
     return out
   }, [panes])
@@ -158,7 +180,9 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
           )
           api.setData(
             s.data.map((d) =>
-              d.value == null ? { time: d.time as Time } : { time: d.time as Time, value: d.value, color: d.value >= 0 ? pos : neg },
+              d.value == null
+                ? { time: d.time as Time }
+                : { time: d.time as Time, value: d.value, color: d.color ? resolve(d.color) : d.value >= 0 ? pos : neg },
             ),
           )
         }
@@ -182,7 +206,16 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
 
     const total = panes.reduce((a, p) => a + (p.stretch ?? 1), 0)
     chart.panes().forEach((p, i) => p.setStretchFactor((panes[i]?.stretch ?? 1) / total))
-    chart.timeScale().fitContent()
+    const keep = rangeKey && saved.current?.key === rangeKey ? saved.current.range : null
+    if (!keep) saved.current = null
+    if (keep) chart.timeScale().setVisibleLogicalRange(keep)
+    else chart.timeScale().fitContent()
+    // Remembered as the chart reports it (fit and restore apply lazily: reading
+    // the range at teardown could catch the default view before the fit).
+    const onRange = (r: { from: number; to: number } | null) => {
+      if (rangeKey && r) saved.current = { key: rangeKey, range: { from: r.from, to: r.to } }
+    }
+    chart.timeScale().subscribeVisibleLogicalRangeChange(onRange)
 
     const onMove = (param: MouseEventParams<Time>) => {
       if (!param.time) {
@@ -198,10 +231,11 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
     }
     chart.subscribeCrosshairMove(onMove)
     return () => {
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRange)
       chart.unsubscribeCrosshairMove(onMove)
       chart.remove()
     }
-  }, [panes, vars])
+  }, [panes, vars, rangeKey])
 
   const shown = hover.time ? hover.values : lastValues
   // The zones under the hovered session, said in the core's words.
@@ -234,6 +268,11 @@ export function TimeChart({ panes, height = 360, className }: { panes: PaneSpec[
           }),
         )}
       </div>
+      {notes && (
+        <div className="mb-2 min-h-[1.5em] text-[11px] leading-snug text-ink-2">
+          {hover.time && notes[hover.time] ? notes[hover.time] : null}
+        </div>
+      )}
       {panes.some((p) => p.zones?.length) && (
         <div className="mb-2 min-h-[2.5em] space-y-0.5 text-[11px] leading-snug text-ink-2">
           {hoveredZones.length

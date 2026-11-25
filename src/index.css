@@ -23,6 +23,9 @@
   --up-soft: rgba(47, 191, 113, 0.13);
   --down: #f0524f;
   --down-soft: rgba(240, 82, 79, 0.13);
+  /* Volume bars: the session's sign, muted so price stays the figure. */
+  --up-vol: rgba(47, 191, 113, 0.42);
+  --down-vol: rgba(240, 82, 79, 0.42);
   --warn: #fab219;
   --warn-soft: rgba(250, 178, 25, 0.12);
   --grid: #1c2026;
@@ -55,6 +58,8 @@
   --up-soft: rgba(18, 128, 74, 0.1);
   --down: #cf3532;
   --down-soft: rgba(207, 53, 50, 0.09);
+  --up-vol: rgba(18, 128, 74, 0.38);
+  --down-vol: rgba(207, 53, 50, 0.38);
   --warn: #a86d00;
   --warn-soft: rgba(250, 178, 25, 0.16);
   --grid: #eceef1;

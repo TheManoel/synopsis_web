@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Activity, ChartCandlestick, FlaskConical, Flame, Landmark, Moon, Orbit, Sigma, Sun, type LucideIcon } from 'lucide-react'
+import { Activity, ChartCandlestick, FlaskConical, Flame, Landmark, Moon, Orbit, ScanSearch, Search, Sigma, Sun, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router'
 import { useSection } from '../lib/api'
@@ -7,6 +7,8 @@ import { fmtChange, fmtLevel } from '../lib/format'
 import { setTheme, useTheme } from '../lib/theme'
 import type { InstrumentCard } from '../lib/types'
 import { Delta } from './ui'
+import { CommandPalette } from './symbols/CommandPalette'
+import { openSymbolSearch } from '../lib/symbolNav'
 
 type NavItem = { to: string; label: string; icon: LucideIcon; badge?: string }
 
@@ -21,6 +23,10 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { to: '/divisas-bonos', label: 'Divisas y bonos', icon: Landmark },
       { to: '/opciones', label: 'Opciones', icon: Sigma, badge: 'PoC' },
     ],
+  },
+  {
+    title: 'Análisis',
+    items: [{ to: '/simbolos', label: 'Símbolos', icon: ScanSearch }],
   },
   {
     title: 'Laboratorio',
@@ -108,9 +114,17 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-[220px] shrink-0 flex-col border-r border-line bg-surface px-3 py-4 md:flex">
-        <div className="px-2 pb-6">
+        <div className="px-2 pb-5">
           <Logo />
         </div>
+        <button
+          onClick={openSymbolSearch}
+          className="mb-5 flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-xs text-ink-3 hover:text-ink-2"
+        >
+          <Search size={14} />
+          <span className="flex-1 text-left">Buscar símbolo</span>
+          <kbd className="rounded border border-line px-1 text-[10px]">Ctrl K</kbd>
+        </button>
         {NAV_GROUPS.map((group, gi) => (
         <div key={group.title} className={clsx(gi > 0 && 'pt-5')}>
         <div className="eyebrow px-2.5 pb-2">{group.title}</div>
@@ -167,6 +181,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
         <Tape />
         <main className="mx-auto w-full max-w-[1480px] flex-1 px-4 py-6 md:px-8">{children}</main>
+        <CommandPalette />
       </div>
     </div>
   )

@@ -5,6 +5,8 @@ import type {
   Basis,
   BreadthBoard,
   ExpiryDetail,
+  IndicatorCatalog,
+  IndicatorSeries,
   InstrumentSeries,
   OptionsSummary,
   Participation,
@@ -19,8 +21,12 @@ import type {
   Section,
   StrategyLabCatalog,
   StrategyTemplate,
+  SymbolChart,
+  SymbolHit,
+  SymbolProfile,
   Timeframe,
   VolContext,
+  Watchlist,
 } from './types'
 
 export class ApiError extends Error {
@@ -37,6 +43,10 @@ async function get<T>(path: string): Promise<T> {
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+}
+
+async function put<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 }
 
 async function del(path: string): Promise<void> {
@@ -201,5 +211,78 @@ export function useDeleteStrategy() {
   return useMutation({
     mutationFn: (id: string) => del(`/strategy-lab/strategies/${enc(id)}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['strategy-lab', 'catalog'] }),
+  })
+}
+
+// ---------------------------------------------------------------- symbols
+
+export const useIndicatorCatalog = () =>
+  useQuery({ queryKey: ['symbols', 'indicators'], queryFn: () => get<IndicatorCatalog>('/symbols/indicators'), staleTime: Infinity })
+
+export const useSymbolSearch = (q: string) =>
+  useQuery({
+    queryKey: ['symbols', 'search', q],
+    queryFn: ({ signal }) =>
+      request<{ query: string; hits: SymbolHit[] }>(`/symbols/search?q=${enc(q)}&limit=12`, { signal }),
+    enabled: q.trim().length > 0,
+    placeholderData: keepPreviousData,
+    staleTime: 10 * 60_000,
+  })
+
+export const useSymbolProfile = (key: string | null) =>
+  useQuery({
+    queryKey: ['symbols', 'profile', key],
+    queryFn: () => get<SymbolProfile>(`/symbols/${enc(key!)}`),
+    enabled: !!key,
+    retry: 0,
+  })
+
+export const useSymbolChart = (key: string | null, timeframe: string, range: string) =>
+  useQuery({
+    queryKey: ['symbols', 'chart', key, timeframe, range],
+    queryFn: () => get<SymbolChart>(`/symbols/${enc(key!)}/chart?timeframe=${timeframe}&range=${range}`),
+    enabled: !!key,
+    placeholderData: keepPreviousData,
+    retry: 0,
+  })
+
+/** One query per indicator: adding one fetches only that one. */
+export const useIndicatorSeries = (key: string | null, timeframe: string, range: string, specs: string[]) =>
+  useQueries({
+    queries: specs.map((spec) => ({
+      queryKey: ['symbols', 'indicator', key, timeframe, range, spec],
+      queryFn: () =>
+        get<IndicatorSeries>(`/symbols/${enc(key!)}/indicator?spec=${enc(spec)}&timeframe=${timeframe}&range=${range}`),
+      enabled: !!key,
+      retry: 0,
+      staleTime: 5 * 60_000,
+    })),
+  })
+
+const WATCHLIST = ['symbols', 'watchlist'] as const
+
+export const useWatchlist = () =>
+  useQuery({ queryKey: WATCHLIST, queryFn: () => get<Watchlist>('/symbols/watchlist') })
+
+/** Replaces the whole ordered list; the list is updated before the core answers
+ *  (order and membership only: quotes come back with the answer). */
+export function useSaveWatchlist() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (keys: string[]) => put<Watchlist>('/symbols/watchlist', { keys }),
+    onMutate: async (keys) => {
+      await qc.cancelQueries({ queryKey: WATCHLIST })
+      const prev = qc.getQueryData<Watchlist>(WATCHLIST)
+      if (prev) {
+        const byKey = new Map(prev.items.map((i) => [i.key, i]))
+        qc.setQueryData<Watchlist>(WATCHLIST, {
+          ...prev,
+          items: keys.map((k) => byKey.get(k)).filter((i): i is NonNullable<typeof i> => !!i),
+        })
+      }
+      return { prev }
+    },
+    onError: (_e, _k, ctx) => ctx?.prev && qc.setQueryData(WATCHLIST, ctx.prev),
+    onSuccess: (data) => qc.setQueryData(WATCHLIST, data),
   })
 }
