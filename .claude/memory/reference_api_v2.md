@@ -31,6 +31,7 @@ metadata:
 | `POST /strategy-lab/strategies` | `{label, description, rules, based_on, replace_id}` | escribe `config/strategy_lab/user/<id>.yaml`; 409 si el nombre existe |
 | `DELETE /strategy-lab/strategies/{id}` | — | solo estrategias `origin: user` (204) |
 | `POST /strategy-lab/backtest` | `BacktestRequestDTO`: `{strategy, params}` o `{rules, label}` | `core/strategy_lab/services/backtester` (422 = valores rechazados, en palabras); devuelve `rules` |
+| `POST /strategy-lab/diagnose` | petición del backtest + `window_start`, `window_end` | `core/strategy_lab/services/diagnosis` (traza por sesión, márgenes, veredicto; 422 = ventana inválida) |
 | `GET /symbols/indicators` | — | catálogo `core/symbols/domain/indicators.py` + marcos y ventanas |
 | `GET /symbols/search` | `q`, `limit` | `SqlSymbolDirectory.candidates` + `core/symbols/services/search.rank_hits` |
 | `GET/PUT /symbols/watchlist` | PUT `{keys}` (lista entera) | `watchlist_store` (YAML) + `compute_reading` por clave |

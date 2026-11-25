@@ -45,6 +45,12 @@ rango, no al desmontar: `fitContent` es perezoso), `notes` (texto de eventos al 
 color por barra en histogramas (volumen por signo de la vela, tokens `--up-vol/--down-vol`).
 Paleta global Ctrl/⌘+K (`CommandPalette` en `Shell`).
 
+**Pestaña Backtest** (2026-11-25; `Análisis | Backtest`, en localStorage `synopsis.symbols.view`):
+`SymbolBacktest` ejecuta una plantilla o estrategia guardada del lab sobre el símbolo (ajustes en
+`synopsis.symbols.backtest`; al cambiar de símbolo se repite con los mismos). Las reglas se escriben
+en el Strategy Lab, aquí no. Debajo del precio, «¿Por qué (no) dio señal?» (`DiagnosisPanel`, ver
+[[project_strategy_lab]]). Ratios/diferenciales: no se ofrece.
+
 **Límites / siguiente**: S/R y zonas (el `zone_book` está atado al grafo de features), Ichimoku
 (spans al futuro), comparar varios símbolos superpuestos, estacionalidad (`core/seasonality`
 existe), ficha fundamental más allá del BPA (ventas, dividendos), enlazar desde Índices/Grupos a

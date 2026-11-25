@@ -98,6 +98,22 @@ costes; sin dividendos ni intereses de la liquidez. Solo instrumentos `kind: pri
 - `TimeChart` ganó `markers` y `logScale` por panel (la escala log se aplica por índice de panel;
   vía `series.priceScale()` contaminaba el panel de drawdown).
 
+**Diagnóstico «¿por qué (no) dio señal?»** (2026-11-25, `core/strategy_lab/services/diagnosis.py`,
+`POST /strategy-lab/diagnose` = petición del backtest + `window_start/end`, máx. 1500 sesiones):
+traza la composición (grupo de uno = el uno) emparejada por posición con el `ConditionGroup`
+compilado; `held` = evaluación del motor (la misma que lee el backtester, verificado), `null` si
+sus series no tienen valor (calentamiento o techo/suelo sin formar). **Margen** derivado del
+nodo compilado: `cross`/`diff` → A−B (% de B en escala precio; pts/pp si no), `distance_pct` →
+pp sobre el umbral, valor vs umbral → % del umbral; divergencias sin margen. El backtester
+guarda ahora el destino de cada señal (`signals`: taken / in_position / unfilled) y acepta una
+`evaluation` ya hecha (`cut_at_end`). Veredicto por orden: calentamiento → hubo señal → todo en
+posición (mira la salida) → ignoradas en posición → pendiente → nunca se cumplió (en un «todas»,
+las que no se dieron; si todas se dieron, cuál faltó sola y cuántas veces). Front:
+`components/strategy/DiagnosisPanel.tsx` (franjas SVG por condición + línea de margen, cursor
+sincronizado) dentro de `BacktestResults` (extraído del lab, compartido con Símbolos); en la tabla
+de operaciones, el microscopio analiza el tramo fuera de mercado previo a cada entrada. Helpers
+de formulario en `src/lib/strategyForm.ts`. Solo en Símbolos por ahora (el lab no lo muestra).
+
 **Siguiente**: stops/objetivos/salida por tiempo como bloques de salida (el walker ya tiene
 `ExitLevel`), cortos (`SIDES` solo ofrece largo), más series (ATR, ADX, volumen), divergencias
 por pivotes (las del motor con confirmación), rectángulo/triángulo como series (techo/suelo de
