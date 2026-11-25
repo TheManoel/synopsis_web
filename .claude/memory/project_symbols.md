@@ -7,7 +7,7 @@ metadata:
 
 # Símbolos (análisis de un activo)
 
-- **Estado**: v1 el 2026-11-25 (`/simbolos/:key`), datos reales. Front en `feature/grupos-rotacion`; core en `feature/synopsis`. Sin commitear aún.
+- **Estado**: v1 el 2026-11-25 (`/simbolos/:key`), datos reales. Front en `feature/grupos-rotacion`; core en `feature/synopsis` (commits e5553e2 front, c59656b core).
 - **Leer si**: tocas `/simbolos`, añades un indicador, la watchlist o el buscador
 - **Código**: front `src/pages/SymbolsPage.tsx`, `src/components/symbols/*`, `src/lib/chartPrefs.ts`,
   `src/lib/symbolNav.ts`; core `src/core/symbols/` (domain/indicators.py, services/*, ports/directory.py),
