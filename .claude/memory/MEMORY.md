@@ -21,3 +21,4 @@
 - [Símbolos](project_symbols.md) — análisis gráfico de un activo: indicadores del core por spec, watchlist YAML, ⌘K, fuerza relativa, etapa
 - [Fuerza relativa](project_relative_strength.md) — histórico RS guardado por universo → sector → industria → valor, viaje en el tiempo, comparación; avisa el retraso del cron
 - [Strategy Lab](project_strategy_lab.md) — estrategias como plantillas de reglas, backtest vs comprar y mantener, Golden Cross
+- [Informes externos](project_external_reports.md) — McClellan (Timing Models en BD, ciclos, COT) y Montoya (opciones): dato externo point-in-time vs feature nativa, PDF en screener_data
