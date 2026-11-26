@@ -1224,3 +1224,22 @@ export interface Seasonality {
   studies: CycleStudy[]
   warnings: string[]
 }
+
+// ------------------------------------------------------------ option levels on a price chart
+export interface PriceLevel {
+  value: number
+  kind: 'call_wall' | 'put_wall' | 'gamma_flip' | 'max_pain' | 'em_session_hi' | 'em_session_lo' | 'em_week_hi' | 'em_week_lo'
+  label: string
+  text: string
+}
+
+export interface SymbolOptionLevels {
+  key: string
+  applies: boolean
+  underlying: string | null
+  spot: number | null
+  spot_time: string | null
+  levels: PriceLevel[]
+  regime: string | null
+  warnings: string[]
+}

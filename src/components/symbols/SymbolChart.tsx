@@ -1,6 +1,6 @@
-import { CalendarClock, CandlestickChart, LineChart } from 'lucide-react'
+import { CalendarClock, CandlestickChart, LineChart, Sigma } from 'lucide-react'
 import { useMemo } from 'react'
-import { ApiError, useIndicatorSeries, useSymbolChart, useSymbolTiming } from '../../lib/api'
+import { ApiError, useIndicatorSeries, useSymbolChart, useSymbolOptionLevels, useSymbolTiming } from '../../lib/api'
 import { type ChartPrefs, useChartPrefs } from '../../lib/chartPrefs'
 import { fmtLevel, fmtUnit } from '../../lib/format'
 import { seriesColor } from '../../lib/theme'
@@ -8,6 +8,8 @@ import type { IndicatorCatalog, IndicatorSeries } from '../../lib/types'
 import { TimeChart, type Marker, type PaneSpec, type SeriesSpec } from '../charts/TimeChart'
 import { Card, ErrorState, Segmented, Skeleton, Warnings } from '../ui'
 import { IndicatorBar, type ChipState } from './IndicatorPicker'
+import { OptionLevelsPanel } from './OptionLevelsPanel'
+import { LEVEL_COLOR } from './optionLevelColors'
 import { TimingPanel } from './TimingPanel'
 import { timingOverlay, visibleSignals } from './timingOverlay'
 
@@ -103,6 +105,9 @@ function ChartBody({
   // lastKey stands for lastBar (a new object each render).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const overlay = useMemo(() => timingOverlay(timingSignals, lastBar), [timingSignals, lastKey])
+  const optionsQuery = useSymbolOptionLevels(symbolKey)
+  const optionLevels = optionsQuery.data?.key === symbolKey ? optionsQuery.data : undefined
+  const optionsOn = !!prefs.options && !!optionLevels?.applies
   const specs = indicators.map((i) => i.spec)
   const results = useIndicatorSeries(symbolKey, timeframe, range, specs)
   const data = chart.data
@@ -132,7 +137,14 @@ function ChartBody({
             type: 'line', id: 'price', label: data.label, color: 'var(--ink-2)', width: 2, format: (v) => fmtLevel(v), markers, whitespace,
             data: data.dates.map((t, i) => ({ time: t, value: data.close[i] })),
           }
-    const pricePane: PaneSpec = { series: [price], stretch: 3, logScale: log, futureEvents: timingOn ? overlay.future : undefined }
+    const pricePane: PaneSpec = {
+      series: [price], stretch: 3, logScale: log, futureEvents: timingOn ? overlay.future : undefined,
+      levels: optionsOn
+        ? optionLevels!.levels.map((l) => ({
+            value: l.value, label: l.label, color: LEVEL_COLOR[l.kind], title: !l.kind.endsWith('_lo'), dashed: l.kind.startsWith('em_'),
+          }))
+        : undefined,
+    }
     const lower: PaneSpec[] = []
     ready.forEach((ind, i) => {
       if (!ind) return
@@ -143,7 +155,7 @@ function ChartBody({
     return [pricePane, ...lower]
     // readyKey stands for `ready` (a new array each render).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, readyKey, style, log, overlay, timingOn, timing])
+  }, [data, readyKey, style, log, overlay, timingOn, timing, optionsOn, optionLevels])
 
   const notes = useMemo(() => {
     const lines: Record<string, string[]> = {}
@@ -168,6 +180,8 @@ function ChartBody({
     ...(data?.warnings ?? []),
     ...ready.flatMap((r) => (r ? r.warnings.map((w) => `${r.label}: ${w}`) : [])),
     ...(timingOn ? timing!.warnings.map((w) => `McClellan: ${w}`) : []),
+    ...(optionsOn ? optionLevels!.warnings.map((w) => `Opciones: ${w}`) : []),
+    ...(optionsQuery.error && prefs.options ? [`Opciones: ${optionsQuery.error instanceof ApiError ? optionsQuery.error.message : String(optionsQuery.error)}`] : []),
     ...(timingQuery.error && timingMode !== 'off' ? [`McClellan: ${timingQuery.error instanceof ApiError ? timingQuery.error.message : String(timingQuery.error)}`] : []),
   ]
   const paneCount = panes.length
@@ -196,6 +210,17 @@ function ChartBody({
           >
             Log
           </button>
+          {optionLevels?.applies && (
+            <button
+              onClick={() => update({ options: !optionsOn })}
+              aria-pressed={optionsOn}
+              className={`${TOGGLE} ${optionsOn ? 'border-accent/50 bg-accent-soft text-ink' : 'border-line bg-surface-2 text-ink-2 hover:text-ink'}`}
+              title="Niveles de la cadena de opciones: muros de calls y puts, gamma flip, max pain y movimiento implícito"
+            >
+              <Sigma size={13} />
+              Opciones
+            </button>
+          )}
           {timing?.applies && (
             <button
               onClick={() => update({ timing: timingOn ? 'off' : 'all' })}
@@ -239,6 +264,7 @@ function ChartBody({
               <span className="font-semibold text-accent">R</span> = publicación de resultados (en la primera sesión tras el anuncio); pasa el cursor por ella para ver el BPA y la sorpresa.
             </p>
           )}
+          {optionsOn && optionLevels && <OptionLevelsPanel data={optionLevels} />}
           {timingOn && timing && (
             <TimingPanel timing={timing} mode={timingMode === 'strong' ? 'strong' : 'all'} onMode={(m) => update({ timing: m })} />
           )}

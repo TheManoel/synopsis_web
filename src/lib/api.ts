@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
+  SymbolOptionLevels,
   Seasonality,
   SymbolTiming,
   TimingBoard,
@@ -285,6 +286,17 @@ export const useSeasonality = (key: string | null, enabled = true) =>
     enabled: !!key && enabled,
     retry: 0,
     staleTime: 30 * 60_000,
+  })
+
+/** The option chain's levels for the underlying's chart (the chain is cached 5 min in the core). */
+export const useSymbolOptionLevels = (key: string | null) =>
+  useQuery({
+    queryKey: ['symbols', 'option-levels', key],
+    queryFn: () => get<SymbolOptionLevels>(`/symbols/${enc(key!)}/option-levels`),
+    enabled: !!key,
+    retry: 0,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
   })
 
 /** McClellan's Timing Models placed on the chart's calendar (forecasts change biweekly). */

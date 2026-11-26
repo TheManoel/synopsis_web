@@ -17,6 +17,8 @@ export interface ChartPrefs {
   indicators: ActiveIndicator[]
   /** McClellan's Timing Models on the chart (only where they apply). Absent in older prefs = off. */
   timing?: 'off' | 'all' | 'strong'
+  /** The option chain's levels as lines (only on an underlying with a chain). */
+  options?: boolean
 }
 
 const KEY = 'synopsis.symbols.chart'

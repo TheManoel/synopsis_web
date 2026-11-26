@@ -47,7 +47,8 @@ export interface PaneSpec {
   stretch?: number
   series: SeriesSpec[]
   /** Horizontal reference levels drawn on the pane's first series. */
-  levels?: { value: number; label?: string; color?: string }[] // value shown on the price axis
+  /** `title`: the label drawn on the line itself; `dashed` for a softer reference. */
+  levels?: { value: number; label?: string; color?: string; title?: boolean; dashed?: boolean }[] // value shown on the price axis
   /** Logarithmic price scale: equal moves in % look equal (long histories). */
   logScale?: boolean
   /** Zones drawn over the pane's first series (ceilings/floors); hovering a
@@ -223,7 +224,8 @@ export function TimeChart({
           for (const lv of pane.levels ?? [])
             api.createPriceLine({
               price: lv.value, color: resolve(lv.color ?? 'var(--axis)'), lineWidth: 1,
-              lineStyle: LineStyle.Solid, axisLabelVisible: true, title: '',
+              lineStyle: lv.dashed ? LineStyle.Dashed : LineStyle.Solid, axisLabelVisible: true,
+              title: lv.title && lv.label ? lv.label : '',
             })
       })
     })
