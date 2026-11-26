@@ -7,16 +7,19 @@ metadata:
 
 # Informes externos de analistas
 
-- **Estado**: 2026-11-26: ingesta (tabla + DAG, screener_data aa193ff), ciclo del oro
-  recalibrado (core d7d68b1) y lectura en core + motor + API + overlay en Símbolos. Pendiente:
-  ciclos/COT como indicadores de Símbolos, página propia del tablero, cotejo, opciones.
+- **Estado**: 2026-11-26: ingesta (screener_data aa193ff), ciclo del oro (d7d68b1), lectura +
+  motor + API + overlay en Símbolos (7fb633d/c1dc866), página Informes con cotejo
+  (5dece7f/4256097), COT como indicador de Símbolos (d1a48cf), niveles de opciones propios
+  sobre el SPX (bb1c5e1/670cf6f). Pendiente: Montoya (Gmail + tabla) e histórico de cadena.
 - **Leer si**: tocas McClellan, ciclos, COT de sus informes, niveles de opciones de Montoya
 - **Código**: screener_data `airflow/dags/lib/mcclellan_timing.py` (parser puro + PyMuPDF),
   `orchestrators/mcclellan/load_mcclellan_reports.py`, `database/migrations/050_mcclellan_timing.sql`,
   `tests/test_mcclellan_timing.py`; core `src/core/timing_models/` (history = fotos point-in-time,
   series, catalog, book, engine_handler), `config/timing_models/mcclellan.yaml` (bloque →
   instrumentos), `applications/synopsis/timing_service.py`; front `components/symbols/TimingPanel.tsx`,
-  `timingOverlay.ts`, `charts/eventLinesPrimitive.ts`
+  `timingOverlay.ts`, `charts/eventLinesPrimitive.ts`, `pages/ReportsPage.tsx` (/informes);
+  cotejo `core/timing_models/services/check.py`; niveles de opciones
+  `options_service.levels_for_symbol` + `components/symbols/OptionLevelsPanel.tsx`
 
 **Principio** (acordado con el usuario): no se discuten sus conclusiones, se visualizan y, más
 adelante, se cotejan con nuestros datos. Lo calculable (osciladores, COT, ciclos) = feature
@@ -50,7 +53,14 @@ pref `timing` off/all/strong. lightweight-charts no pinta marcadores sobre hueco
 las fechas futuras van con `EventLinesPrimitive`, y con huecos `fitContent` ancla la última barra
 al borde → se fija el rango lógico a mano.
 
-**Plan**: (1) ciclos y COT visibles en Símbolos; (2) página del tablero (`/timing/mcclellan`);
-(3) cotejo con nuestros pivotes; (4) opciones:
-niveles propios desde el PoC (walls, gamma flip, implícito) → Montoya desde Gmail (extracción
-revisada por el usuario) → histórico de cadena. Ver [[project_options_poc]], [[feedback_core_computes]].
+**Cotejo**: giro = pivote de cierre (k = 3); hit ±2 / near ±5 sesiones en el `verify_on` del
+bloque; SIEMPRE frente a la base (lo que acierta una sesión cualquiera del periodo, ~50 % a ±2).
+Primer resultado (10 informes): índices 37 % vs 49 % de base; el resto ≈ base. Con pocas
+previsiones es ruido: mostrar n.
+
+**Ciclos**: son parte del estudio de estacionalidad → [[project_seasonality]].
+
+**Pendiente**: Montoya desde Gmail (necesita autenticar el conector, tabla nueva = DDL con OK,
+extracción revisada por el usuario) e histórico diario de la cadena (DDL). Nuestros niveles
+(volumen, ≤45 días) difieren mucho de los suyos (SpotGamma, OI): compararlos es el objetivo.
+Ver [[project_options_poc]], [[feedback_core_computes]].
