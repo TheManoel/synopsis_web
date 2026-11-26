@@ -53,8 +53,8 @@ export interface PaneSpec {
   /** Zones drawn over the pane's first series (ceilings/floors); hovering a
    * session shows the text of the zones it falls in. */
   zones?: ZoneLayer[]
-  /** Events on future sessions (the first series' `whitespace`): markers cannot sit
-   * where there is no bar, so they are drawn as dashed vertical lines. */
+  /** Dated vertical lines over the pane: events on future sessions (the first series'
+   * `whitespace`, where markers cannot sit) or boundaries such as a cycle's phases. */
   futureEvents?: EventLine[]
 }
 

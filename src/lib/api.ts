@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
+  Seasonality,
   SymbolTiming,
   TimingBoard,
   Backtest,
@@ -274,6 +275,16 @@ export const useSymbolChart = (key: string | null, timeframe: string, range: str
     placeholderData: keepPreviousData,
     retry: 0,
     refetchInterval: LIVE,
+  })
+
+/** The asset's cycle studies (average year, presidential cycle, its own cycles). */
+export const useSeasonality = (key: string | null, enabled = true) =>
+  useQuery({
+    queryKey: ['seasonality', key],
+    queryFn: () => get<Seasonality>(`/seasonality/${enc(key!)}`),
+    enabled: !!key && enabled,
+    retry: 0,
+    staleTime: 30 * 60_000,
   })
 
 /** McClellan's Timing Models placed on the chart's calendar (forecasts change biweekly). */

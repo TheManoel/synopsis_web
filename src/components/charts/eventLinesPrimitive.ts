@@ -8,9 +8,9 @@ import type {
 } from 'lightweight-charts'
 
 /**
- * A dated event on a session that has no bar yet (whitespace after the last
- * bar): series markers cannot sit there, so it is drawn as a dashed vertical
- * line with an arrow (up = from below, down = from above) and its label.
+ * A dated event drawn as a dashed vertical line across the pane: one on a session
+ * with no bar yet (series markers cannot sit on whitespace), with an arrow (up =
+ * from below, down = from above), or a plain boundary with its label at the top.
  */
 export interface EventLine {
   time: string
@@ -18,6 +18,8 @@ export interface EventLine {
   up: boolean
   strong: boolean
   text?: string
+  /** false: a plain dated boundary (a phase of a cycle), its label at the top. */
+  arrow?: boolean
 }
 
 type Target = Parameters<IPrimitivePaneRenderer['draw']>[0]
@@ -71,6 +73,15 @@ export class EventLinesPrimitive implements ISeriesPrimitive<Time> {
         ctx.stroke()
         ctx.globalAlpha = 1
         ctx.setLineDash([])
+        if (e.arrow === false) {
+          if (e.text) {
+            ctx.fillStyle = e.color
+            ctx.textAlign = 'left'
+            ctx.fillText(e.text, xs + 4, 12 + n * 13)
+            ctx.textAlign = 'center'
+          }
+          continue
+        }
         const size = e.strong ? 6 : 4
         // Arrow pointing the way of the turn: up near the bottom, down near the top.
         const yArrow = e.up ? mediaSize.height - 22 - n * 22 : 14 + n * 22

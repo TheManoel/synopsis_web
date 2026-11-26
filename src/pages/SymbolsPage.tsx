@@ -5,6 +5,7 @@ import { Navigate, useNavigate, useParams } from 'react-router'
 import { SymbolBacktest } from '../components/symbols/SymbolBacktest'
 import { SymbolChart } from '../components/symbols/SymbolChart'
 import { SymbolSearch } from '../components/symbols/SymbolSearch'
+import { SymbolSeasonality } from '../components/symbols/SymbolSeasonality'
 import { WatchlistPanel } from '../components/symbols/Watchlist'
 import { Card, Delta, ErrorState, InfoTip, Pill, Segmented, Skeleton, Warnings } from '../components/ui'
 import { useIndicatorCatalog, useSaveWatchlist, useSymbolProfile, useWatchlist } from '../lib/api'
@@ -24,9 +25,10 @@ import type { EarningsRow, RelativeTable, RsRank, StageInfo, SymbolProfile, Tech
 
 const LAST_KEY = 'synopsis.symbols.last'
 const VIEW_KEY = 'synopsis.symbols.view'
-type View = 'analysis' | 'backtest'
+type View = 'analysis' | 'seasonality' | 'backtest'
 const VIEWS: { value: View; label: string; hint: string }[] = [
   { value: 'analysis', label: 'Análisis', hint: 'Gráfico, fuerza relativa, etapa y lectura técnica' },
+  { value: 'seasonality', label: 'Estacionalidad', hint: 'Su año medio, el ciclo presidencial y los ciclos propios del activo frente al tramo en curso' },
   { value: 'backtest', label: 'Backtest', hint: 'Una estrategia del Strategy Lab sobre este activo, y por qué dio (o no) señal' },
 ]
 
@@ -34,7 +36,8 @@ const VIEWS: { value: View; label: string; hint: string }[] = [
 function useView(): [View, (v: View) => void] {
   const [view, setView] = useState<View>(() => {
     try {
-      return localStorage.getItem(VIEW_KEY) === 'backtest' ? 'backtest' : 'analysis'
+      const v = localStorage.getItem(VIEW_KEY)
+      return v === 'backtest' || v === 'seasonality' ? v : 'analysis'
     } catch {
       return 'analysis'
     }
@@ -108,6 +111,8 @@ export function SymbolsPage() {
         <Segmented label="Vista" value={view} options={VIEWS} onChange={setView} />
         {view === 'backtest' ? (
           <SymbolBacktest symbolKey={key} />
+        ) : view === 'seasonality' ? (
+          <SymbolSeasonality symbolKey={key} />
         ) : (
           <>
             {catalog.data ? <SymbolChart symbolKey={key} catalog={catalog.data} /> : <Skeleton className="h-[640px]" />}

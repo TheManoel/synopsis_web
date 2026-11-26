@@ -1153,3 +1153,44 @@ export interface TimingBoard {
   signals: TimingSignal[]
   warnings: string[]
 }
+
+// ------------------------------------------------------------ Seasonality (cycles)
+export interface CycleSegment {
+  start: string
+  end: string
+  sessions: number
+  total_pct: number
+}
+
+export interface CycleStudy {
+  id: string
+  label: string
+  description: string
+  source: string
+  period_label: string
+  /** Default reading: with its drift (raw) or only the shape (detrended). */
+  reading: 'raw' | 'detrended'
+  segments: CycleSegment[]
+  current: CycleSegment
+  axis: string[]
+  mean_pct: number[]
+  mean_detrended_pct: number[]
+  current_pct: (number | null)[]
+  projected_from: string | null
+  position: number
+  phase: string | null
+  next_mark: string | null
+  marks: { time: string; label: string }[]
+  ahead_mean_pct: number | null
+  ahead_positive: number
+  ahead_total: number
+  summary: string
+  warnings: string[]
+}
+
+export interface Seasonality {
+  key: string
+  label: string
+  studies: CycleStudy[]
+  warnings: string[]
+}
