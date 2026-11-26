@@ -8,6 +8,7 @@
 ## Reglas de trabajo
 
 - [Diseño desde cero](feedback_fresh_start.md) — no tomar nada de signal_lab_web; el diseño es propio
+- [Tablas por dominio](feedback_table_naming.md) — nombre por dominio, el proveedor/feed como columna (renombrar ods.montoya_post)
 - [El front no calcula](feedback_core_computes.md) — toda cifra derivada nace en el core, con sus unidades y avisos
 
 ## Diseño
@@ -21,5 +22,6 @@
 - [Símbolos](project_symbols.md) — análisis gráfico de un activo: indicadores del core por spec, watchlist YAML, ⌘K, fuerza relativa, etapa
 - [Fuerza relativa](project_relative_strength.md) — histórico RS guardado por universo → sector → industria → valor, viaje en el tiempo, comparación; avisa el retraso del cron
 - [Strategy Lab](project_strategy_lab.md) — estrategias como plantillas de reglas, backtest vs comprar y mantener, Golden Cross
-- [Informes externos](project_external_reports.md) — McClellan (Timing Models en BD, ciclos, COT) y Montoya (opciones): dato externo point-in-time vs feature nativa, PDF en screener_data
+- [Informes externos](project_external_reports.md) — McClellan (Timing Models en BD, ciclos, COT) y Montoya (Substack → ods.montoya_post): dato externo point-in-time vs feature nativa, PDF en screener_data
+- [Panel de administración](project_admin_panel.md) — /sistema: Docker, BD, cargas de Airflow y fuentes desde la web; solo con SYNOPSIS_ADMIN=1 y en local
 - [Estacionalidad](project_seasonality.md) — ciclos como estudio de estacionalidad: año medio, presidencial, oro 13,5 m; plegado de la historia vs tramo en curso

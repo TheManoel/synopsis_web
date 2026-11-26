@@ -10,7 +10,7 @@ metadata:
 - **Estado**: estable para v0; los DTO están reflejados en `src/lib/types.ts`
 - **Leer si**: añades un endpoint, cambias un DTO o buscas dónde se calcula una cifra
 - **Código**: rutas `src/applications/synopsis/routes.py`, DTO `models.py`, servicios
-  `markets_service.py`, `rotation_service.py`, `options_service.py`, `strategy_service.py`, `symbols_service.py`, `rs_service.py` y `timing_service.py` (todo en `../screener_core`)
+  `markets_service.py`, `rotation_service.py`, `options_service.py`, `strategy_service.py`, `symbols_service.py`, `rs_service.py`, `timing_service.py` y `admin_service.py` (+ `admin_routes.py`) (todo en `../screener_core`)
 
 | endpoint | parámetros | cálculo en el core |
 |---|---|---|
@@ -44,6 +44,10 @@ metadata:
 | `GET /symbols/{key}/chart` | `timeframe` d\|w\|m, `range` 3m…max | OHLCV columnar + eventos de resultados |
 | `GET /symbols/{key}/timing` | `timeframe`, `range` | `TimingService.for_symbol`: Timing Models de McClellan en el calendario del gráfico, `future_dates` (ver [[project_external_reports]]) |
 | `GET /timing/mcclellan` | — | tablero del último informe + avisos (informe siguiente atrasado) |
+| `GET /admin/system` · `POST /admin/services/{name}/{start\|stop\|restart}` · `GET …/logs` | `tail` | `AdminService` + `DockerComposeRuntime` (solo con `SYNOPSIS_ADMIN=1`, loopback; ver [[project_admin_panel]]) |
+| `GET /admin/database` | — | `SqlDatabaseInspector` + `core/operations/services/health.freshness` |
+| `GET /admin/pipelines` · `…/runs/{run}` · `…/tasks/{task}/log` · `POST …/trigger` · `POST …/pause` | `try_number` | `AirflowRestOrchestrator` + `etl.ingestion_run` |
+| `GET /admin/sources` · `PUT/DELETE /admin/sources/montoya/credential` | — | Montoya (Substack) y McClellan; cookie = Variable de Airflow |
 | `GET /symbols/{key}/indicator` | `spec`, `timeframe`, `range` | `indicator_engine.compute` (422 = spec rechazada) |
 
 Claves de instrumento: `TICKER@MIC` (`^SPX@CBOE`), `ratio:<code>`, `spread:<code>`.

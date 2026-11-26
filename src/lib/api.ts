@@ -1,5 +1,15 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
+  AdminDatabase,
+  AdminLog,
+  AdminPipelines,
+  AdminRun,
+  AdminRunDetail,
+  AdminService,
+  AdminSources,
+  AdminSystem,
+  AdminTaskLog,
+  ServiceAction,
   SymbolOptionLevels,
   Seasonality,
   SymbolTiming,
@@ -408,3 +418,76 @@ export const useRsMemberHistory = (key: string | null, universe: string | null, 
 
 export const useRsMemberHistories = (members: { key: string; universe: string }[], range: string, asOf: string | null) =>
   useQueries({ queries: members.map((m) => memberHistory(m.key, m.universe, range, asOf)) })
+
+// ---------------------------------------------------------------- admin (panel del sistema)
+/** Sin reintentos: un 404 aquí significa que el panel no está activado (SYNOPSIS_ADMIN=1). */
+const ADMIN = { retry: 0, staleTime: 0 } as const
+
+export const useAdminSystem = () =>
+  useQuery({ queryKey: ['admin', 'system'], queryFn: () => get<AdminSystem>('/admin/system'), refetchInterval: 15_000, ...ADMIN })
+
+export const useAdminDatabase = (enabled = true) =>
+  useQuery({ queryKey: ['admin', 'database'], queryFn: () => get<AdminDatabase>('/admin/database'), refetchInterval: 60_000, enabled, ...ADMIN })
+
+/** Cada 5 s mientras hay cargas en curso; cada 20 s si no. */
+export const useAdminPipelines = (enabled = true) =>
+  useQuery({
+    queryKey: ['admin', 'pipelines'],
+    queryFn: () => get<AdminPipelines>('/admin/pipelines'),
+    refetchInterval: (q) => (q.state.data?.running ? 5_000 : 20_000),
+    enabled,
+    ...ADMIN,
+  })
+
+export const useAdminSources = (enabled = true) =>
+  useQuery({ queryKey: ['admin', 'sources'], queryFn: () => get<AdminSources>('/admin/sources'), refetchInterval: 30_000, enabled, ...ADMIN })
+
+export const useAdminRun = (dagId: string | null, runId: string | null) =>
+  useQuery({
+    queryKey: ['admin', 'run', dagId, runId],
+    queryFn: () => get<AdminRunDetail>(`/admin/pipelines/${enc(dagId!)}/runs/${enc(runId!)}`),
+    enabled: !!dagId && !!runId,
+    refetchInterval: (q) => (['queued', 'running'].includes(q.state.data?.run.state ?? '') ? 3_000 : false),
+    ...ADMIN,
+  })
+
+export const useAdminTaskLog = (dagId: string | null, runId: string | null, taskId: string | null, tryNumber: number, live: boolean) =>
+  useQuery({
+    queryKey: ['admin', 'log', dagId, runId, taskId, tryNumber],
+    queryFn: () =>
+      get<AdminTaskLog>(`/admin/pipelines/${enc(dagId!)}/runs/${enc(runId!)}/tasks/${enc(taskId!)}/log?try_number=${Math.max(tryNumber, 1)}`),
+    enabled: !!dagId && !!runId && !!taskId,
+    refetchInterval: live ? 3_000 : false,
+    ...ADMIN,
+  })
+
+export const useServiceLogs = (name: string | null, tail = 300) =>
+  useQuery({
+    queryKey: ['admin', 'service-logs', name, tail],
+    queryFn: () => get<AdminLog>(`/admin/services/${enc(name!)}/logs?tail=${tail}`),
+    enabled: !!name,
+    refetchInterval: 10_000,
+    ...ADMIN,
+  })
+
+function useAdminMutation<V, R>(fn: (v: V) => Promise<R>) {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: fn, onSettled: () => qc.invalidateQueries({ queryKey: ['admin'] }) })
+}
+
+export const useServiceAction = () =>
+  useAdminMutation(({ name, action }: { name: string; action: ServiceAction }) =>
+    post<AdminService>(`/admin/services/${enc(name)}/${action}`, {}),
+  )
+
+export const useTriggerPipeline = () => useAdminMutation((dagId: string) => post<AdminRun>(`/admin/pipelines/${enc(dagId)}/trigger`, {}))
+
+export const usePausePipeline = () =>
+  useAdminMutation(({ dagId, paused }: { dagId: string; paused: boolean }) =>
+    post<void>(`/admin/pipelines/${enc(dagId)}/pause`, { paused }),
+  )
+
+export const useMontoyaCredential = () =>
+  useAdminMutation((value: string | null) =>
+    value == null ? del('/admin/sources/montoya/credential') : put<void>('/admin/sources/montoya/credential', { value }),
+  )

@@ -10,7 +10,8 @@ ni convenciones de UI). Ver memoria `feedback_fresh_start`.
 ## Comandos
 
 ```bash
-npm run dev:all      # API (:8899, --reload sobre src/ del core) + front (:5180); Ctrl+C para ambos
+npm run dev:all      # API (:8899, --reload sobre src/ del core, SYNOPSIS_ADMIN=1) + front (:5180); Ctrl+C para ambos
+                     # BD, Airflow y cargas se operan desde la web: /sistema (sin docker en la terminal)
 npm run dev          # http://localhost:5180, proxy /api → :8899 (SYNOPSIS_API para otro destino)
 npm run build        # tsc -b + vite build
 npx oxlint src       # lint
@@ -30,9 +31,10 @@ API_ONLY=1 poetry run uvicorn src.applications.signal_lab.web.app:create_app --f
 - `src/pages/` — `MarketSectionPage` (índices, materias primas, divisas y bonos),
   `BreadthPage` (NYSE), `GroupsPage` (grupos y rotación, RRG), `OptionsPage` (PoC SPX),
   `StrategyLabPage` (plantillas de estrategia y backtest), `SymbolsPage` (análisis de un símbolo),
-  `RelativeStrengthPage` (fuerza relativa por universo → sector → industria → valor)
+  `RelativeStrengthPage` (fuerza relativa por universo → sector → industria → valor),
+  `AdminPage` (`/sistema`: servicios Docker, BD, cargas de Airflow y fuentes externas; `components/admin/`)
 - Backend de este front en el core: `src/applications/synopsis/` (rutas + servicios),
-  `src/core/markets/`, `src/core/options/`, `src/core/relative_strength/` (histórico RS), `src/core/strategy_lab/`, `src/core/symbols/` (indicadores,
+  `src/core/markets/`, `src/core/options/`, `src/core/relative_strength/` (histórico RS), `src/core/strategy_lab/`, `src/core/operations/` (panel de administración; `config/operations/system.yaml`), `src/core/symbols/` (indicadores,
   fuerza relativa, búsqueda, watchlist), `config/markets/catalog.yaml`,
   `config/markets/rotation.yaml` (universos de grupos), `config/strategy_lab/*.yaml` (plantillas;
   `user/` = estrategias guardadas desde el editor), `config/synopsis/user/watchlist.yaml` (watchlist)

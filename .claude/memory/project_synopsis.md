@@ -24,6 +24,7 @@ metadata:
 | Símbolos | `/simbolos/:key` | `/symbols/*` — ver [[project_symbols]] |
 | Fuerza relativa | `/fuerza-relativa` | `/rs/*` — ver [[project_relative_strength]] |
 | Strategy Lab | `/strategy-lab` | `/strategy-lab/*` — ver [[project_strategy_lab]] |
+| Administración | `/sistema` | `/admin/*` — ver [[project_admin_panel]] |
 
 La sección `volatility` del catálogo no tiene página propia: alimenta la cinta superior y el
 contexto de volatilidad de Opciones. Detalle de endpoints en [[reference_api_v2]].

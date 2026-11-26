@@ -6,6 +6,11 @@
 #   CORE_DIR   ruta a screener_core           (por defecto ../screener_core)
 #   API_PORT   puerto de la API               (por defecto 8899)
 #   FRONT_PORT puerto del front               (por defecto 5180)
+#   SCREENER_DATA_DIR  compose de BD + Airflow (por defecto ../screener_data)
+#
+# La API arranca con el panel de administración (/sistema, SYNOPSIS_ADMIN=1): desde la
+# web se arrancan y paran la BD y Airflow, se lanzan las cargas y se siguen sus logs.
+# Funciona aunque la BD esté parada (para poder arrancarla desde ahí).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -31,7 +36,7 @@ trap 'trap - INT TERM EXIT; kill 0 2>/dev/null' INT TERM EXIT
   cd "$CORE_DIR"
   # --reload: la API se reinicia sola al cambiar el código del core (solo src/,
   # no config/: guardar una estrategia o la watchlist no la reinicia).
-  API_ONLY=1 poetry run uvicorn src.applications.signal_lab.web.app:create_app \
+  SYNOPSIS_ADMIN=1 API_ONLY=1 poetry run uvicorn src.applications.signal_lab.web.app:create_app \
     --factory --port "$API_PORT" --reload --reload-dir src 2>&1 | sed -u 's/^/[api]   /'
 ) &
 
@@ -40,6 +45,6 @@ trap 'trap - INT TERM EXIT; kill 0 2>/dev/null' INT TERM EXIT
   SYNOPSIS_API="http://localhost:$API_PORT" npx vite --port "$FRONT_PORT" --strictPort 2>&1 | sed -u 's/^/[front] /'
 ) &
 
-echo "API http://localhost:$API_PORT · front http://localhost:$FRONT_PORT · Ctrl+C para parar"
+echo "API http://localhost:$API_PORT · front http://localhost:$FRONT_PORT · panel http://localhost:$FRONT_PORT/sistema · Ctrl+C para parar"
 # Si cualquiera de los dos muere, se para el otro.
 wait -n

@@ -10,7 +10,8 @@ metadata:
 - **Estado**: 2026-11-26: ingesta (screener_data aa193ff), ciclo del oro (d7d68b1), lectura +
   motor + API + overlay en Símbolos (7fb633d/c1dc866), página Informes con cotejo
   (5dece7f/4256097), COT como indicador de Símbolos (d1a48cf), niveles de opciones propios
-  sobre el SPX (bb1c5e1/670cf6f). Pendiente: Montoya (Gmail + tabla) e histórico de cadena.
+  sobre el SPX (bb1c5e1/670cf6f). Montoya: ingesta de Substack a `ods.montoya_post` (migración
+  051) el 2026-11-26; pendiente extraer sus niveles (revisado por el usuario) e histórico de cadena.
 - **Leer si**: tocas McClellan, ciclos, COT de sus informes, niveles de opciones de Montoya
 - **Código**: screener_data `airflow/dags/lib/mcclellan_timing.py` (parser puro + PyMuPDF),
   `orchestrators/mcclellan/load_mcclellan_reports.py`, `database/migrations/050_mcclellan_timing.sql`,
@@ -60,7 +61,20 @@ previsiones es ruido: mostrar n.
 
 **Ciclos**: son parte del estudio de estacionalidad → [[project_seasonality]].
 
-**Pendiente**: Montoya desde Gmail (necesita autenticar el conector, tabla nueva = DDL con OK,
-extracción revisada por el usuario) e histórico diario de la cadena (DDL). Nuestros niveles
+**Montoya** (elegido Substack frente a Gmail: API JSON con id, fecha exacta, slug y audiencia;
+idempotente y sin parsear correos): screener_data `lib/substack.py` (puro + cliente),
+`orchestrators/montoya/load_montoya_posts.py` (cada hora 06–21 UTC), `tests/test_substack.py`,
+migración `051_montoya_posts.sql` (OK del usuario a la tabla Y a guardar el texto, para
+re-extraer sin volver a descargar). jjmontoya.substack.com: ~404 posts desde jul-2024 (100
+abiertos, 304 `only_paid`). `/api/v1/archive` pagina por **cursor** (`nextCursor`): `offset` o
+`limit` > 12 → 400. Sin cookie los de pago traen solo la vista previa (en las morning notes
+incluye el TL;DR con niveles); «completo» = palabras ≥ 85 % del `wordcount` de Substack.
+Cookie `substack.sid` → Variable de Airflow `montoya_substack_sid`, se pega en /sistema →
+Fuentes; con cookie, la siguiente carga completa los incompletos (barrido entero del archivo).
+El usuario se suscribió y pegó la cookie el 2026-11-26: la carga de las 13:20 UTC completó los de pago (vista previa → completo) hacia atrás. Fuentes externas no son solo estas dos: amplitud = suscripción a amplituddemercado.com (endpoint Apps Script), precios/metadatos = yfinance, COT = CFTC. Ver [[project_admin_panel]].
+
+**Pendiente**: extraer los niveles de Montoya (Put/Call Wall, Gamma Flip, VT, movimiento
+implícito) como dato point-in-time — extracción revisada por el usuario, tabla nueva = DDL con
+OK — e histórico diario de la cadena (DDL). Nuestros niveles
 (volumen, ≤45 días) difieren mucho de los suyos (SpotGamma, OI): compararlos es el objetivo.
 Ver [[project_options_poc]], [[feedback_core_computes]].

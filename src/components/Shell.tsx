@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Activity, ChartCandlestick, FileText, FlaskConical, Flame, Gauge, Landmark, Moon, Orbit, ScanSearch, Search, Sigma, Sun, type LucideIcon } from 'lucide-react'
+import { Activity, ChartCandlestick, FileText, FlaskConical, Flame, Gauge, Landmark, Moon, Orbit, ScanSearch, Search, Server, Sigma, Sun, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router'
 import { useSection } from '../lib/api'
@@ -35,6 +35,10 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: 'Laboratorio',
     items: [{ to: '/strategy-lab', label: 'Strategy Lab', icon: FlaskConical }],
+  },
+  {
+    title: 'Sistema',
+    items: [{ to: '/sistema', label: 'Administración', icon: Server }],
   },
 ]
 const NAV = NAV_GROUPS.flatMap((g) => g.items)

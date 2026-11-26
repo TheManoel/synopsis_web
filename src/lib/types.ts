@@ -1243,3 +1243,164 @@ export interface SymbolOptionLevels {
   regime: string | null
   warnings: string[]
 }
+
+// ---------------------------------------------------------------- admin (panel del sistema)
+/** Salud que decide el core: ok · running · warn · down · idle (parado a propósito). */
+export type AdminLevel = 'ok' | 'running' | 'warn' | 'down' | 'idle'
+export type ServiceAction = 'start' | 'stop' | 'restart'
+
+export interface AdminService {
+  name: string
+  label: string
+  role: 'database' | 'orchestrator' | 'tool' | 'init' | string
+  description: string
+  container: string | null
+  state: string
+  health: string | null
+  status_text: string
+  started_at: string | null
+  ports: string[]
+  image: string | null
+  url: string | null
+  actions: ServiceAction[]
+  stop_warning: string | null
+  level: AdminLevel
+  condition: string
+}
+
+export interface AdminSystem {
+  compose_dir: string
+  docker_available: boolean
+  services: AdminService[]
+  airflow_url: string
+  level: AdminLevel
+  warnings: string[]
+}
+
+export interface AdminLog {
+  source: string
+  lines: string[]
+}
+
+export interface AdminDataset {
+  code: string
+  label: string
+  table: string
+  cadence: 'sessions' | 'days'
+  last: string | null
+  lag: number | null
+  level: AdminLevel
+  text: string
+  pipeline: string | null
+  note: string | null
+}
+
+export interface AdminDatabase {
+  reachable: boolean
+  database: string | null
+  version: string | null
+  timescale: string | null
+  size_bytes: number | null
+  started_at: string | null
+  max_connections: number | null
+  connections: { state: string; count: number }[]
+  connections_total: number | null
+  schemas: { schema_name: string; size_bytes: number; tables: number }[]
+  tables: { schema_name: string; table: string; size_bytes: number; rows_estimate: number | null }[]
+  datasets: AdminDataset[]
+  level: AdminLevel
+  warnings: string[]
+}
+
+export type RunState = 'queued' | 'running' | 'success' | 'failed' | string
+
+export interface AdminRun {
+  run_id: string
+  state: RunState
+  run_type: string
+  logical_date: string | null
+  start: string | null
+  end: string | null
+  duration_s: number | null
+  note: string | null
+}
+
+export interface AdminTracker {
+  etl_run_id: string
+  status: 'running' | 'success' | 'failed' | string
+  start: string
+  end: string | null
+  duration_s: number | null
+  row_count: number | null
+  error: string | null
+  facts: { key: string; value: string }[]
+  warnings: string[]
+}
+
+export interface AdminPipeline {
+  dag_id: string
+  description: string | null
+  tags: string[]
+  paused: boolean
+  schedule: string | null
+  scheduled: boolean
+  next_run: string | null
+  next_run_due: boolean
+  level: AdminLevel
+  condition: string
+  runs: AdminRun[]
+  tracker: AdminTracker | null
+  datasets: string[]
+}
+
+export interface AdminPipelines {
+  airflow_url: string
+  reachable: boolean
+  pipelines: AdminPipeline[]
+  running: number
+  level: AdminLevel
+  warnings: string[]
+}
+
+export interface AdminTask {
+  task_id: string
+  state: string | null
+  try_number: number
+  start: string | null
+  end: string | null
+  duration_s: number | null
+  operator: string | null
+}
+
+export interface AdminRunDetail {
+  dag_id: string
+  run: AdminRun
+  tasks: AdminTask[]
+  tracker: AdminTracker | null
+}
+
+export interface AdminTaskLog {
+  dag_id: string
+  run_id: string
+  task_id: string
+  try_number: number
+  text: string
+}
+
+export interface AdminSource {
+  code: string
+  label: string
+  channel: string
+  description: string
+  pipeline: string
+  credential: { key: string; label: string; configured: boolean | null; hint: string } | null
+  counts: { key: string; value: string }[]
+  /** published: ISO con hora (Substack) o solo fecha AAAA-MM-DD (McClellan). */
+  items: { title: string; published: string; kind: string; url: string | null; complete: boolean; detail: string }[]
+  level: AdminLevel
+  warnings: string[]
+}
+
+export interface AdminSources {
+  sources: AdminSource[]
+}

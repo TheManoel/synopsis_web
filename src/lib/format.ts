@@ -117,3 +117,39 @@ const ASSET_TYPES: Record<string, string> = {
   STOCK: 'Acción', ETF: 'ETF', INDEX: 'Índice', FUTURE: 'Futuro', CURRENCY: 'Divisa', FUND: 'Fondo', CRYPTO: 'Cripto',
 }
 export const assetTypeLabel = (t: string | null | undefined) => (t ? (ASSET_TYPES[t.toUpperCase()] ?? t) : '')
+
+/** Bytes en la unidad binaria más cómoda: «13,6 GB». */
+export function fmtBytes(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return DASH
+  const units = ['B', 'kB', 'MB', 'GB', 'TB']
+  let i = 0
+  let x = v
+  while (x >= 1024 && i < units.length - 1) {
+    x /= 1024
+    i++
+  }
+  return `${nf(0, i === 0 ? 0 : 1).format(x)} ${units[i]}`
+}
+
+/** Duración en segundos: «45 s», «3 min 12 s», «2 h 05 min». */
+export function fmtDuration(s: number | null | undefined): string {
+  if (s == null || !Number.isFinite(s)) return DASH
+  if (s < 60) return `${Math.round(s)} s`
+  if (s < 3600) return `${Math.floor(s / 60)} min ${String(Math.round(s % 60)).padStart(2, '0')} s`
+  return `${Math.floor(s / 3600)} h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')} min`
+}
+
+const dateTimeFmt = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+export const fmtDateTime = (iso: string | null | undefined) => (iso ? dateTimeFmt.format(new Date(iso)) : DASH)
+
+const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' })
+/** «hace 5 minutos», «dentro de 3 horas». */
+export function fmtAgo(iso: string | null | undefined, now = Date.now()): string {
+  if (!iso) return DASH
+  const s = (new Date(iso).getTime() - now) / 1000
+  const a = Math.abs(s)
+  if (a < 60) return rtf.format(Math.round(s), 'second')
+  if (a < 3600) return rtf.format(Math.round(s / 60), 'minute')
+  if (a < 86400) return rtf.format(Math.round(s / 3600), 'hour')
+  return rtf.format(Math.round(s / 86400), 'day')
+}
