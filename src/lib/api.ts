@@ -78,8 +78,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 const enc = encodeURIComponent
 
+/** Price reads reach the current (delayed) quote; the core refreshes it once a minute. */
+const LIVE = 60_000
+
 export const useSection = (code: string) =>
-  useQuery({ queryKey: ['section', code], queryFn: () => get<Section>(`/markets/sections/${code}`) })
+  useQuery({ queryKey: ['section', code], queryFn: () => get<Section>(`/markets/sections/${code}`), refetchInterval: LIVE })
 
 export const useInstrumentSeries = (key: string | null, bars: number) =>
   useQuery({
@@ -87,6 +90,7 @@ export const useInstrumentSeries = (key: string | null, bars: number) =>
     queryFn: () => get<InstrumentSeries>(`/markets/instruments/${enc(key!)}/series?bars=${bars}`),
     enabled: !!key,
     placeholderData: keepPreviousData,
+    refetchInterval: LIVE,
   })
 
 /** Several instruments' series at once (e.g. the Treasury curve levels). */
@@ -95,6 +99,7 @@ export const useSeriesMany = (keys: string[], bars: number) =>
     queries: keys.map((key) => ({
       queryKey: ['series', key, bars],
       queryFn: () => get<InstrumentSeries>(`/markets/instruments/${enc(key)}/series?bars=${bars}`),
+      refetchInterval: LIVE,
     })),
   })
 
@@ -104,6 +109,7 @@ export const usePerformance = (section: string, group: string | null, bars: numb
     queryFn: () => get<Performance>(`/markets/sections/${section}/groups/${group}/performance?bars=${bars}`),
     enabled: !!group,
     placeholderData: keepPreviousData,
+    refetchInterval: LIVE,
   })
 
 export const useBreadth = (bars: number) =>
@@ -249,6 +255,7 @@ export const useSymbolProfile = (key: string | null) =>
     queryFn: () => get<SymbolProfile>(`/symbols/${enc(key!)}`),
     enabled: !!key,
     retry: 0,
+    refetchInterval: LIVE,
   })
 
 export const useSymbolChart = (key: string | null, timeframe: string, range: string) =>
@@ -258,6 +265,7 @@ export const useSymbolChart = (key: string | null, timeframe: string, range: str
     enabled: !!key,
     placeholderData: keepPreviousData,
     retry: 0,
+    refetchInterval: LIVE,
   })
 
 /** One query per indicator: adding one fetches only that one. */
@@ -270,13 +278,15 @@ export const useIndicatorSeries = (key: string | null, timeframe: string, range:
       enabled: !!key,
       retry: 0,
       staleTime: 5 * 60_000,
+      // Follows the chart: the indicator reaches the same last bar.
+      refetchInterval: LIVE,
     })),
   })
 
 const WATCHLIST = ['symbols', 'watchlist'] as const
 
 export const useWatchlist = () =>
-  useQuery({ queryKey: WATCHLIST, queryFn: () => get<Watchlist>('/symbols/watchlist') })
+  useQuery({ queryKey: WATCHLIST, queryFn: () => get<Watchlist>('/symbols/watchlist'), refetchInterval: LIVE })
 
 /** Replaces the whole ordered list; the list is updated before the core answers
  *  (order and membership only: quotes come back with the answer). */

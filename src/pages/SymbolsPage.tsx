@@ -174,7 +174,7 @@ function Header({ p, watched, onToggle }: { p: SymbolProfile; watched: boolean; 
           <div className="flex items-center justify-end gap-2">
             <Delta value={d1?.value} text={fmtChange(d1, 'price')} className="text-sm" />
             <span className="text-[11px] text-ink-3">
-              {r.session_in_progress ? 'sesión en curso' : `cierre ${fmtShortDate(r.as_of)}`}
+              {r.session_in_progress ? 'sesión en curso' : `${r.live ? 'provisional' : 'cierre'} ${fmtShortDate(r.as_of)}`}
             </span>
           </div>
         </div>

@@ -45,3 +45,12 @@ Siempre con `encodeURIComponent` (llevan `^`, `=` y `@`).
 Unidades (`kind`): `price` → % · `yield` → pb · `spread` → nivel y cambios en pb · `level` →
 puntos. `from_high` y `dist_sma50/200` ya vienen en la unidad del `kind`.
 `session_in_progress` = la barra es de una sesión aún abierta (FX y futuros, corte 17:00 NY).
+
+**Precio actual (2026-11-26)**: todos los servicios de Synopsis leen precios vía
+`applications/synopsis/live_bars.LiveBarsRepository` (montado en `routes._live_config`): historia
+de la BD + barras **provisionales** de Yahoo (`yf.download` 1mo, lote, TTL 60 s) para las sesiones
+que la BD aún no tiene, incluida la de hoy; símbolo Yahoo desde `ods.provider_ticker_map`. Nunca
+sustituye barras guardadas salvo la última si es de sesión abierta; base vacía → no inventa
+historia. Amplitud usa `get_stored_history` (alineada con sus snapshots). DTO: `live`
+(`LiveQuoteDTO`) en tarjeta, serie y gráfico de símbolo; si Yahoo falla → `warnings`. El front
+refresca cada 60 s y `TimeChart current live` pinta la línea de precio y la insignia.

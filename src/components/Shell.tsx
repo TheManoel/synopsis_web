@@ -77,7 +77,7 @@ function ThemeToggle() {
 function TapeItem({ card }: { card: InstrumentCard }) {
   const d1 = card.changes.find((c) => c.horizon === '1D')
   return (
-    <div className="flex shrink-0 items-baseline gap-2 px-3" title={card.as_of ? `Cierre ${card.as_of}` : undefined}>
+    <div className="flex shrink-0 items-baseline gap-2 px-3" title={card.as_of ? `${card.live ? `Provisional (${card.live.source})` : 'Cierre'} ${card.as_of}` : undefined}>
       <span className="text-[11px] font-medium text-ink-2">{card.label}</span>
       <span className="num text-xs text-ink">{fmtLevel(card.last, card.kind)}</span>
       <Delta value={d1?.value} text={fmtChange(d1, card.kind)} className="text-[11px]" />
@@ -155,7 +155,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="mt-auto border-t border-line pt-3">
           <ThemeToggle />
           <p className="px-2.5 pt-2 text-[10px] leading-relaxed text-ink-3">
-            Datos de cierre diario de la base del screener. Opciones: Yahoo Finance, con retraso.
+            Cierres diarios de la base del screener; las sesiones que aún no tiene (y la de hoy) llegan de Yahoo Finance, con retraso, como provisionales. Opciones: Yahoo Finance.
           </p>
         </div>
       </aside>

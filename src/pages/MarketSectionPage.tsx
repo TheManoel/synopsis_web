@@ -104,9 +104,16 @@ function GroupTable({
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-ink">{c.label}</span>
-                    {c.session_in_progress && (
-                      <span title="La sesión de esta barra aún no ha cerrado" className="text-warn">
-                        <Clock size={12} aria-label="Sesión en curso" />
+                    {(c.session_in_progress || c.live) && (
+                      <span
+                        title={
+                          c.session_in_progress
+                            ? 'La sesión de esta barra aún no ha cerrado'
+                            : `Provisional: la base aún no tiene esta sesión (dato de ${c.live!.source})`
+                        }
+                        className="text-warn"
+                      >
+                        <Clock size={12} aria-label={c.session_in_progress ? 'Sesión en curso' : 'Provisional'} />
                       </span>
                     )}
                     {c.warnings.length > 0 && <Pill tone="warn" title={c.warnings.join(' · ')}>aviso</Pill>}
@@ -195,8 +202,9 @@ function FocusChart({ card }: { card: InstrumentCard }) {
       }
       subtitle={
         <span className="inline-flex items-center gap-2">
-          Cierre {fmtDate(card.as_of)}
-          {card.session_in_progress && (
+          {card.live ? 'Último dato' : 'Cierre'} {fmtDate(card.as_of)}
+          {/* A provisional tail is said once, by the chart's legend. */}
+          {card.session_in_progress && !card.live && (
             <Pill tone="warn">
               <Clock size={11} /> Sesión en curso
             </Pill>
@@ -212,7 +220,7 @@ function FocusChart({ card }: { card: InstrumentCard }) {
         <Skeleton className="h-[380px]" />
       ) : (
         <div className={clsx(q.isPlaceholderData && 'is-stale')}>
-          <TimeChart panes={panes} height={360} />
+          <TimeChart panes={panes} height={360} rangeKey={`${card.key}|${bars}`} current live={q.data.live} />
           <Warnings items={q.data.warnings} className="mt-3" />
         </div>
       )}
@@ -337,7 +345,11 @@ export function MarketSectionPage({ section }: { section: string }) {
   return (
     <div>
       <PageHeader eyebrow="Estudio de mercados" title={q.data?.title ?? ' '} subtitle={q.data?.subtitle}>
-        {asOf && <span className="text-xs text-ink-3">Último cierre {fmtDate(asOf)}</span>}
+        {asOf && (
+          <span className="text-xs text-ink-3">
+            {cards.some((c) => c.live) ? 'Datos a' : 'Último cierre'} {fmtDate(asOf)}
+          </span>
+        )}
       </PageHeader>
 
       {q.error ? (

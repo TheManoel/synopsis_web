@@ -1,7 +1,8 @@
 import clsx from 'clsx'
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, Info, Minus } from 'lucide-react'
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, Clock, Info, Minus } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { tone } from '../lib/format'
+import { fmtShortDate, fmtTime, tone } from '../lib/format'
+import type { LiveQuote } from '../lib/types'
 
 export function Segmented<T extends string | number>({
   value,
@@ -88,6 +89,24 @@ export function Pill({
     >
       {children}
     </span>
+  )
+}
+
+/** Says that the series ends in provisional bars (not yet in the base) and where they come from. */
+export function LiveBadge({ live }: { live: LiveQuote | null | undefined }) {
+  if (!live) return null
+  const span =
+    live.provisional_from === live.as_of
+      ? `la sesión del ${fmtShortDate(live.as_of)}`
+      : `las sesiones del ${fmtShortDate(live.provisional_from)} al ${fmtShortDate(live.as_of)}`
+  return (
+    <Pill
+      tone="warn"
+      title={`La base aún no tiene ${span}: vienen de ${live.source} (consultado ${fmtTime(live.fetched_at)}) y pueden cambiar hasta la carga de cierre.`}
+    >
+      <Clock size={11} aria-hidden />
+      {live.in_progress ? 'En curso' : 'Provisional'} · {fmtShortDate(live.as_of)}
+    </Pill>
   )
 }
 

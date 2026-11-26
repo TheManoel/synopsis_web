@@ -8,6 +8,18 @@ export interface Change {
   pct: number | null
 }
 
+/** The provisional tail of a series: sessions the quote provider already has
+ * and the base (end-of-day ETL) does not yet. `as_of`/`last` = current price. */
+export interface LiveQuote {
+  provisional_from: string
+  as_of: string
+  last: number
+  fetched_at: string
+  source: string
+  /** The last bar's session is still open: its close is the latest quote. */
+  in_progress: boolean
+}
+
 export interface InstrumentCard {
   key: string
   label: string
@@ -31,6 +43,7 @@ export interface InstrumentCard {
   trend: 'up' | 'down' | 'mixed' | 'unknown'
   realized_vol_21d: number | null
   spark: number[]
+  live: LiveQuote | null
   warnings: string[]
 }
 
@@ -70,6 +83,7 @@ export interface InstrumentSeries {
   bars: SeriesPoint[]
   sma50: LinePoint[]
   sma200: LinePoint[]
+  live: LiveQuote | null
   warnings: string[]
 }
 
@@ -910,6 +924,7 @@ export interface SymbolChart {
   has_volume: boolean
   last_bar_partial: boolean
   events: ChartEvent[]
+  live: LiveQuote | null
   warnings: string[]
 }
 

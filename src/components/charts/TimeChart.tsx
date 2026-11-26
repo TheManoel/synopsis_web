@@ -16,6 +16,8 @@ import {
 } from 'lightweight-charts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCssVars } from '../../lib/theme'
+import type { LiveQuote } from '../../lib/types'
+import { LiveBadge } from '../ui'
 import { ZonesPrimitive, type ZoneBox } from './zonePrimitive'
 
 /** `color`: a histogram bar's own colour (volume by the session's sign). */
@@ -56,6 +58,10 @@ export interface ZoneLayer {
   boxes: (ZoneBox & { text: string })[]
 }
 
+/** The current-price line: dotted, in the colour of the last bar. */
+const priceLine = (on: boolean) =>
+  on ? { priceLineVisible: true, priceLineWidth: 1 as const, priceLineStyle: LineStyle.Dotted } : { priceLineVisible: false }
+
 const THEME_VARS = ['surface', 'ink-2', 'ink-3', 'grid', 'axis', 'up', 'down', 'line-strong'] as const
 
 /** Resolve `var(--x)` strings for the canvas renderer. */
@@ -76,6 +82,8 @@ export function TimeChart({
   className,
   rangeKey,
   notes,
+  current = false,
+  live,
 }: {
   panes: PaneSpec[]
   height?: number
@@ -85,6 +93,11 @@ export function TimeChart({
   rangeKey?: string
   /** Text shown under the legend when the cursor is on that session (events). */
   notes?: Record<string, string>
+  /** Draw the current price: a line across the chart at the last value of the
+   * first pane's first series (its value is already labelled on the axis). */
+  current?: boolean
+  /** The series ends in provisional bars (from the quote provider, not yet stored). */
+  live?: LiveQuote | null
 }) {
   const host = useRef<HTMLDivElement>(null)
   const saved = useRef<{ key: string; range: { from: number; to: number } } | null>(null)
@@ -143,7 +156,8 @@ export function TimeChart({
             CandlestickSeries,
             {
               upColor: vars.up, downColor: vars.down, wickUpColor: vars.up, wickDownColor: vars.down,
-              borderVisible: false, priceLineVisible: false, ...(priceFormat ? { priceFormat } : {}),
+              borderVisible: false, ...priceLine(current && paneIndex === 0 && i === 0),
+              ...(priceFormat ? { priceFormat } : {}),
             },
             paneIndex,
           )
@@ -158,7 +172,8 @@ export function TimeChart({
             LineSeries,
             {
               color: resolve(s.color), lineWidth: s.width ?? 2, lineStyle: s.dashed ? LineStyle.Dashed : LineStyle.Solid,
-              priceLineVisible: false, lastValueVisible: i === 0 && !s.hidden, crosshairMarkerRadius: 3,
+              ...priceLine(current && paneIndex === 0 && i === 0 && !s.hidden),
+              lastValueVisible: i === 0 && !s.hidden, crosshairMarkerRadius: 3,
               lineVisible: !s.hidden, crosshairMarkerVisible: !s.hidden,
               ...(priceFormat ? { priceFormat } : {}),
             },
@@ -235,7 +250,7 @@ export function TimeChart({
       chart.unsubscribeCrosshairMove(onMove)
       chart.remove()
     }
-  }, [panes, vars, rangeKey])
+  }, [panes, vars, rangeKey, current])
 
   const shown = hover.time ? hover.values : lastValues
   // The zones under the hovered session, said in the core's words.
@@ -251,7 +266,7 @@ export function TimeChart({
   return (
     <div className={className}>
       <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-        <span className="num text-ink-3">{hover.time ?? 'Último'}</span>
+        <span className="num text-ink-3">{hover.time ?? (live?.in_progress ? 'Actual' : 'Último')}</span>
         {panes.flatMap((p) =>
           p.series.map((s) => {
             const v = shown[s.id]
@@ -266,6 +281,11 @@ export function TimeChart({
               </span>
             )
           }),
+        )}
+        {live && (
+          <span className="ml-auto">
+            <LiveBadge live={live} />
+          </span>
         )}
       </div>
       {notes && (

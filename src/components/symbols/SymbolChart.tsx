@@ -194,6 +194,8 @@ function ChartBody({
             height={380 + Math.max(0, paneCount - 1) * 120}
             rangeKey={`${symbolKey}|${timeframe}|${range}`}
             notes={data.events.length ? notes : undefined}
+            current
+            live={data.live}
           />
           <Warnings items={[...new Set(warnings)]} className="mt-3" />
           {data.events.length > 0 && (
