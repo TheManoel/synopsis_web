@@ -15,6 +15,8 @@ export interface ChartPrefs {
   style: 'candles' | 'line'
   log: boolean
   indicators: ActiveIndicator[]
+  /** McClellan's Timing Models on the chart (only where they apply). Absent in older prefs = off. */
+  timing?: 'off' | 'all' | 'strong'
 }
 
 const KEY = 'synopsis.symbols.chart'

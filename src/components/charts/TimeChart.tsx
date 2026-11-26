@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCssVars } from '../../lib/theme'
 import type { LiveQuote } from '../../lib/types'
 import { LiveBadge } from '../ui'
+import { EventLinesPrimitive, type EventLine } from './eventLinesPrimitive'
 import { ZonesPrimitive, type ZoneBox } from './zonePrimitive'
 
 /** `color`: a histogram bar's own colour (volume by the session's sign). */
@@ -27,15 +28,18 @@ export type Pt = { time: string; value: number | null; color?: string }
 export interface Marker {
   time: string
   position: 'aboveBar' | 'belowBar'
-  shape: 'arrowUp' | 'arrowDown' | 'circle'
+  shape: 'arrowUp' | 'arrowDown' | 'circle' | 'square'
   color: string
   text?: string
+  /** 1 by default; 2 for an event that deserves to stand out. */
+  size?: number
 }
 
 export type SeriesSpec =
-  | { type: 'candles'; id: string; label: string; data: { time: string; open: number; high: number; low: number; close: number }[]; format?: (v: number) => string; markers?: Marker[] }
+  /** `whitespace`: sessions after the last bar (no value yet) so markers can sit in the future. */
+  | { type: 'candles'; id: string; label: string; data: { time: string; open: number; high: number; low: number; close: number }[]; format?: (v: number) => string; markers?: Marker[]; whitespace?: string[] }
   /** `hidden`: no line, only its value in the legend (a level drawn as zones). */
-  | { type: 'line'; id: string; label: string; data: Pt[]; color: string; width?: 1 | 2 | 3; dashed?: boolean; hidden?: boolean; format?: (v: number) => string; markers?: Marker[] }
+  | { type: 'line'; id: string; label: string; data: Pt[]; color: string; width?: 1 | 2 | 3; dashed?: boolean; hidden?: boolean; format?: (v: number) => string; markers?: Marker[]; whitespace?: string[] }
   | { type: 'histogram'; id: string; label: string; data: Pt[]; color: string; negativeColor?: string; format?: (v: number) => string }
 
 export interface PaneSpec {
@@ -49,6 +53,9 @@ export interface PaneSpec {
   /** Zones drawn over the pane's first series (ceilings/floors); hovering a
    * session shows the text of the zones it falls in. */
   zones?: ZoneLayer[]
+  /** Events on future sessions (the first series' `whitespace`): markers cannot sit
+   * where there is no bar, so they are drawn as dashed vertical lines. */
+  futureEvents?: EventLine[]
 }
 
 export interface ZoneLayer {
@@ -161,11 +168,14 @@ export function TimeChart({
             },
             paneIndex,
           )
-          api.setData(s.data.map((d) => ({ ...d, time: d.time as Time })))
+          api.setData([
+            ...s.data.map((d) => ({ ...d, time: d.time as Time })),
+            ...(s.whitespace ?? []).map((t) => ({ time: t as Time })),
+          ])
           if (s.markers?.length)
             createSeriesMarkers(
               api,
-              s.markers.map((mk) => ({ ...mk, time: mk.time as Time, color: resolve(mk.color), size: 1 })),
+              s.markers.map((mk) => ({ ...mk, time: mk.time as Time, color: resolve(mk.color), size: mk.size ?? 1 })),
             )
         } else if (s.type === 'line') {
           api = chart.addSeries(
@@ -179,11 +189,14 @@ export function TimeChart({
             },
             paneIndex,
           )
-          api.setData(s.data.map((d) => (d.value == null ? { time: d.time as Time } : { time: d.time as Time, value: d.value })))
+          api.setData([
+            ...s.data.map((d) => (d.value == null ? { time: d.time as Time } : { time: d.time as Time, value: d.value })),
+            ...(s.whitespace ?? []).map((t) => ({ time: t as Time })),
+          ])
           if (s.markers?.length)
             createSeriesMarkers(
               api,
-              s.markers.map((mk) => ({ ...mk, time: mk.time as Time, color: resolve(mk.color), size: 1 })),
+              s.markers.map((mk) => ({ ...mk, time: mk.time as Time, color: resolve(mk.color), size: mk.size ?? 1 })),
             )
         } else {
           const pos = resolve(s.color)
@@ -204,6 +217,8 @@ export function TimeChart({
         byId.set(s.id, api)
         if (i === 0)
           for (const layer of pane.zones ?? []) api.attachPrimitive(new ZonesPrimitive(layer.boxes, resolve(layer.color), vars.surface))
+        if (i === 0 && pane.futureEvents?.length)
+          api.attachPrimitive(new EventLinesPrimitive(pane.futureEvents.map((e) => ({ ...e, color: resolve(e.color) }))))
         if (i === 0)
           for (const lv of pane.levels ?? [])
             api.createPriceLine({
@@ -223,7 +238,12 @@ export function TimeChart({
     chart.panes().forEach((p, i) => p.setStretchFactor((panes[i]?.stretch ?? 1) / total))
     const keep = rangeKey && saved.current?.key === rangeKey ? saved.current.range : null
     if (!keep) saved.current = null
+    // fitContent anchors the last BAR at the right edge, so trailing whitespace (future
+    // sessions with markers) would slide off-screen: fit every slot explicitly instead.
+    const first = panes[0]?.series[0]
+    const slots = first && first.type !== 'histogram' && first.whitespace?.length ? first.data.length + first.whitespace.length : 0
     if (keep) chart.timeScale().setVisibleLogicalRange(keep)
+    else if (slots) chart.timeScale().setVisibleLogicalRange({ from: -1, to: slots + 2 })
     else chart.timeScale().fitContent()
     // Remembered as the chart reports it (fit and restore apply lazily: reading
     // the range at teardown could catch the default view before the fit).
@@ -289,7 +309,7 @@ export function TimeChart({
         )}
       </div>
       {notes && (
-        <div className="mb-2 min-h-[1.5em] text-[11px] leading-snug text-ink-2">
+        <div className="mb-2 min-h-[1.5em] whitespace-pre-line text-[11px] leading-snug text-ink-2">
           {hover.time && notes[hover.time] ? notes[hover.time] : null}
         </div>
       )}

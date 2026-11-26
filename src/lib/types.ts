@@ -1084,3 +1084,72 @@ export interface RsHeatmap {
   rows: { code: string; name: string; sector_code: string | null; n_members: number | null; values: (number | null)[] }[]
   warnings: string[]
 }
+
+// ------------------------------------------------------------ Timing Models (McClellan)
+export type TimingBlock = 'stocks' | 'bonds' | 'gold' | 'bc'
+
+export interface TimingBlockInfo {
+  code: TimingBlock
+  label: string
+  note: string
+}
+
+export interface TimingReport {
+  report_no: number
+  published_on: string
+  prepared_on: string | null
+  next_report_on: string | null
+  /** The next issue should be out and is not loaded. */
+  next_overdue: boolean
+}
+
+export interface TimingSignal {
+  block: TimingBlock
+  direction: 'top' | 'bottom' | 'volatility'
+  /** BC: may invert. */
+  implied: boolean
+  source: string | null
+  cluster: string | null
+  strong: boolean
+  predicted_raw: string
+  predicted_from: string
+  predicted_to: string
+  first_report: number
+  first_published: string
+  last_report: number
+  in_latest: boolean
+  actual_status: 'hit' | 'missed' | 'forming' | 'unparsed' | null
+  actual_raw: string | null
+  actual_direction: 'top' | 'bottom' | null
+  actual_date: string | null
+  inverted: boolean
+  upcoming: boolean
+  /** Decided by the core: `awaiting` = date passed after the last report (not annotated yet);
+   * `unrecorded` = passed before it and the author wrote no real date. */
+  state: 'upcoming' | 'awaiting' | 'hit' | 'inverted' | 'missed' | 'forming' | 'unparsed' | 'unrecorded'
+  /** The chart bar (or a `future_dates` slot) it is drawn on; null = off the chart. */
+  chart_time: string | null
+  actual_time: string | null
+  /** The core's sentence. */
+  text: string
+}
+
+export interface SymbolTiming {
+  key: string
+  source: string
+  applies: boolean
+  blocks: TimingBlockInfo[]
+  report: TimingReport | null
+  signals: TimingSignal[]
+  /** Bar slots after the last bar where forecasts fall: drawn as whitespace. */
+  future_dates: string[]
+  warnings: string[]
+}
+
+export interface TimingBoard {
+  source: string
+  blocks: TimingBlockInfo[]
+  report: TimingReport | null
+  signals: TimingSignal[]
+  warnings: string[]
+}

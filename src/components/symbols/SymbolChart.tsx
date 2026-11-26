@@ -1,6 +1,6 @@
-import { CandlestickChart, LineChart } from 'lucide-react'
+import { CalendarClock, CandlestickChart, LineChart } from 'lucide-react'
 import { useMemo } from 'react'
-import { ApiError, useIndicatorSeries, useSymbolChart } from '../../lib/api'
+import { ApiError, useIndicatorSeries, useSymbolChart, useSymbolTiming } from '../../lib/api'
 import { type ChartPrefs, useChartPrefs } from '../../lib/chartPrefs'
 import { fmtLevel, fmtUnit } from '../../lib/format'
 import { seriesColor } from '../../lib/theme'
@@ -8,6 +8,8 @@ import type { IndicatorCatalog, IndicatorSeries } from '../../lib/types'
 import { TimeChart, type Marker, type PaneSpec, type SeriesSpec } from '../charts/TimeChart'
 import { Card, ErrorState, Segmented, Skeleton, Warnings } from '../ui'
 import { IndicatorBar, type ChipState } from './IndicatorPicker'
+import { TimingPanel } from './TimingPanel'
+import { timingOverlay, visibleSignals } from './timingOverlay'
 
 const TOGGLE = 'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium'
 
@@ -89,7 +91,18 @@ function ChartBody({
   reset: () => void
 }) {
   const { timeframe, range, style, log, indicators } = prefs
+  const timingMode = prefs.timing ?? 'off'
   const chart = useSymbolChart(symbolKey, timeframe, range)
+  // Always asked (cheap when the asset is in no block): it says whether to offer the toggle.
+  const timingQuery = useSymbolTiming(symbolKey, timeframe, range, true)
+  const timing = timingQuery.data && !timingQuery.isPlaceholderData && timingQuery.data.key === symbolKey ? timingQuery.data : undefined
+  const timingOn = timingMode !== 'off' && !!timing?.applies
+  const timingSignals = useMemo(() => visibleSignals(timing, timingOn ? timingMode : 'off'), [timing, timingOn, timingMode])
+  const lastBar = chart.data?.dates.length ? { time: chart.data.dates[chart.data.dates.length - 1], close: chart.data.close[chart.data.close.length - 1] } : undefined
+  const lastKey = lastBar ? `${lastBar.time}:${lastBar.close}` : ''
+  // lastKey stands for lastBar (a new object each render).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const overlay = useMemo(() => timingOverlay(timingSignals, lastBar), [timingSignals, lastKey])
   const specs = indicators.map((i) => i.spec)
   const results = useIndicatorSeries(symbolKey, timeframe, range, specs)
   const data = chart.data
@@ -102,20 +115,24 @@ function ChartBody({
   const panes = useMemo<PaneSpec[]>(() => {
     if (!data) return []
     const candleUp = new Map(data.dates.map((t, i) => [t, data.close[i] >= data.open[i]]))
-    const markers: Marker[] = data.events.map((e) => ({
-      time: e.time, position: 'belowBar', shape: 'circle', color: 'var(--accent)', text: e.label,
-    }))
+    const markers: Marker[] = [
+      ...data.events.map((e): Marker => ({
+        time: e.time, position: 'belowBar', shape: 'circle', color: 'var(--accent)', text: e.label,
+      })),
+      ...overlay.markers,
+    ].sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
+    const whitespace = timingOn ? timing!.future_dates : undefined
     const price: SeriesSpec =
       style === 'candles' && data.has_ohlc
         ? {
-            type: 'candles', id: 'price', label: data.label, format: (v) => fmtLevel(v), markers,
+            type: 'candles', id: 'price', label: data.label, format: (v) => fmtLevel(v), markers, whitespace,
             data: data.dates.map((t, i) => ({ time: t, open: data.open[i], high: data.high[i], low: data.low[i], close: data.close[i] })),
           }
         : {
-            type: 'line', id: 'price', label: data.label, color: 'var(--ink-2)', width: 2, format: (v) => fmtLevel(v), markers,
+            type: 'line', id: 'price', label: data.label, color: 'var(--ink-2)', width: 2, format: (v) => fmtLevel(v), markers, whitespace,
             data: data.dates.map((t, i) => ({ time: t, value: data.close[i] })),
           }
-    const pricePane: PaneSpec = { series: [price], stretch: 3, logScale: log }
+    const pricePane: PaneSpec = { series: [price], stretch: 3, logScale: log, futureEvents: timingOn ? overlay.future : undefined }
     const lower: PaneSpec[] = []
     ready.forEach((ind, i) => {
       if (!ind) return
@@ -126,9 +143,15 @@ function ChartBody({
     return [pricePane, ...lower]
     // readyKey stands for `ready` (a new array each render).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, readyKey, style, log])
+  }, [data, readyKey, style, log, overlay, timingOn, timing])
 
-  const notes = useMemo(() => Object.fromEntries((data?.events ?? []).map((e) => [e.time, e.text])), [data])
+  const notes = useMemo(() => {
+    const lines: Record<string, string[]> = {}
+    for (const e of data?.events ?? []) (lines[e.time] ??= []).push(e.text)
+    for (const [t, texts] of Object.entries(overlay.notes)) (lines[t] ??= []).push(...texts)
+    return Object.fromEntries(Object.entries(lines).map(([t, l]) => [t, l.join('\n')]))
+  }, [data, overlay])
+  const hasNotes = Object.keys(notes).length > 0
 
   const states: Record<string, ChipState> = {}
   indicators.forEach((ind, i) => {
@@ -144,6 +167,8 @@ function ChartBody({
   const warnings = [
     ...(data?.warnings ?? []),
     ...ready.flatMap((r) => (r ? r.warnings.map((w) => `${r.label}: ${w}`) : [])),
+    ...(timingOn ? timing!.warnings.map((w) => `McClellan: ${w}`) : []),
+    ...(timingQuery.error && timingMode !== 'off' ? [`McClellan: ${timingQuery.error instanceof ApiError ? timingQuery.error.message : String(timingQuery.error)}`] : []),
   ]
   const paneCount = panes.length
 
@@ -171,6 +196,17 @@ function ChartBody({
           >
             Log
           </button>
+          {timing?.applies && (
+            <button
+              onClick={() => update({ timing: timingOn ? 'off' : 'all' })}
+              aria-pressed={timingOn}
+              className={`${TOGGLE} ${timingOn ? 'border-accent/50 bg-accent-soft text-ink' : 'border-line bg-surface-2 text-ink-2 hover:text-ink'}`}
+              title="Fechas de giro previstas por los Timing Models del McClellan Market Report"
+            >
+              <CalendarClock size={13} />
+              McClellan
+            </button>
+          )}
         </>
       }
     >
@@ -192,8 +228,8 @@ function ChartBody({
           <TimeChart
             panes={panes}
             height={380 + Math.max(0, paneCount - 1) * 120}
-            rangeKey={`${symbolKey}|${timeframe}|${range}`}
-            notes={data.events.length ? notes : undefined}
+            rangeKey={`${symbolKey}|${timeframe}|${range}|${timingOn ? 'timing' : ''}`}
+            notes={hasNotes ? notes : undefined}
             current
             live={data.live}
           />
@@ -202,6 +238,9 @@ function ChartBody({
             <p className="mt-2 text-[11px] text-ink-3">
               <span className="font-semibold text-accent">R</span> = publicación de resultados (en la primera sesión tras el anuncio); pasa el cursor por ella para ver el BPA y la sorpresa.
             </p>
+          )}
+          {timingOn && timing && (
+            <TimingPanel timing={timing} mode={timingMode === 'strong' ? 'strong' : 'all'} onMode={(m) => update({ timing: m })} />
           )}
         </div>
       )}

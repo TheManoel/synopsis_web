@@ -1,5 +1,7 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
+  SymbolTiming,
+  TimingBoard,
   Backtest,
   BacktestRequest,
   Basis,
@@ -273,6 +275,20 @@ export const useSymbolChart = (key: string | null, timeframe: string, range: str
     retry: 0,
     refetchInterval: LIVE,
   })
+
+/** McClellan's Timing Models placed on the chart's calendar (forecasts change biweekly). */
+export const useSymbolTiming = (key: string | null, timeframe: string, range: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ['symbols', 'timing', key, timeframe, range],
+    queryFn: () => get<SymbolTiming>(`/symbols/${enc(key!)}/timing?timeframe=${timeframe}&range=${range}`),
+    enabled: !!key && enabled,
+    placeholderData: keepPreviousData,
+    retry: 0,
+    staleTime: 10 * 60_000,
+  })
+
+export const useTimingBoard = () =>
+  useQuery({ queryKey: ['timing', 'mcclellan'], queryFn: () => get<TimingBoard>('/timing/mcclellan'), staleTime: 10 * 60_000 })
 
 /** One query per indicator: adding one fetches only that one. */
 export const useIndicatorSeries = (key: string | null, timeframe: string, range: string, specs: string[]) =>
