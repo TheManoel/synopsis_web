@@ -22,6 +22,7 @@ function Row({ s }: { s: TimingSignal }) {
           </>
         )}
         <span className="block text-[11px] text-ink-3">{s.text}</span>
+        {s.check && s.check.verdict !== 'pending' && <span className="block text-[11px] text-ink-2">{s.check.text}</span>}
       </span>
     </li>
   )

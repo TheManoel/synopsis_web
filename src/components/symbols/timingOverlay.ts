@@ -34,7 +34,7 @@ export function timingOverlay(
     if (!s.chart_time) continue
     const color = tint(s)
     const text = s.block === 'bc' ? 'BC' : (s.cluster ?? undefined)
-    note(s.chart_time, s.text)
+    note(s.chart_time, s.check ? `${s.text}\n   ↳ ${s.check.text}` : s.text)
     // A session with no bar yet cannot hold a marker: a line on the chart instead.
     if (last && s.chart_time > last.time) {
       future.push({ time: s.chart_time, color, up: s.direction !== 'top', strong: s.strong, text })

@@ -1,3 +1,4 @@
+import { ReportsPage } from './pages/ReportsPage'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="/simbolos" element={<SymbolsIndex />} />
             <Route path="/simbolos/:key" element={<SymbolsPage />} />
             <Route path="/fuerza-relativa" element={<RelativeStrengthPage />} />
+            <Route path="/informes" element={<ReportsPage />} />
             <Route path="/strategy-lab" element={<StrategyLabPage />} />
             <Route path="*" element={<Navigate to="/indices" replace />} />
           </Routes>

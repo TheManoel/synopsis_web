@@ -1132,6 +1132,35 @@ export interface TimingSignal {
   actual_time: string | null
   /** The core's sentence. */
   text: string
+  /** Checked against our prices (closing pivots), once its date has come. */
+  check?: TimingCheck | null
+}
+
+export interface TimingCheck {
+  on: string
+  on_label: string
+  /** hit = a closing turn within ±2 sessions, near = ±5. */
+  verdict: 'hit' | 'near' | 'none' | 'pending'
+  turn_date: string | null
+  turn_kind: 'top' | 'bottom' | null
+  offset: number | null
+  text: string
+}
+
+export interface TimingScore {
+  block: TimingBlock
+  block_label: string
+  subset: 'all' | 'strong'
+  on: string
+  on_label: string
+  checked: number
+  hits: number
+  nears: number
+  /** What any session of the same period would score: the bar to beat. */
+  base_hit_pct: number | null
+  base_near_pct: number | null
+  near: number
+  close: number
 }
 
 export interface SymbolTiming {
@@ -1151,6 +1180,7 @@ export interface TimingBoard {
   blocks: TimingBlockInfo[]
   report: TimingReport | null
   signals: TimingSignal[]
+  scorecard: TimingScore[]
   warnings: string[]
 }
 
