@@ -11,6 +11,7 @@ import type {
   AdminTaskLog,
   ServiceAction,
   SymbolOptionLevels,
+  SymbolOptionLevelsHistory,
   Seasonality,
   SymbolTiming,
   TimingBoard,
@@ -298,15 +299,26 @@ export const useSeasonality = (key: string | null, enabled = true) =>
     staleTime: 30 * 60_000,
   })
 
-/** The option chain's levels for the underlying's chart (the chain is cached 5 min in the core). */
-export const useSymbolOptionLevels = (key: string | null) =>
+/** The analyst's option levels in force on a session (`asOf` null = the latest published). */
+export const useSymbolOptionLevels = (key: string | null, asOf: string | null) =>
   useQuery({
-    queryKey: ['symbols', 'option-levels', key],
-    queryFn: () => get<SymbolOptionLevels>(`/symbols/${enc(key!)}/option-levels`),
+    queryKey: ['symbols', 'option-levels', key, asOf],
+    queryFn: () => get<SymbolOptionLevels>(`/symbols/${enc(key!)}/option-levels${asOf ? `?as_of=${asOf}` : ''}`),
     enabled: !!key,
+    placeholderData: keepPreviousData,
     retry: 0,
     staleTime: 5 * 60_000,
-    refetchInterval: 5 * 60_000,
+  })
+
+/** The analyst's levels on every session of the chart (posts arrive hourly in the morning). */
+export const useSymbolOptionLevelsHistory = (key: string | null, timeframe: string, range: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ['symbols', 'option-levels-history', key, timeframe, range],
+    queryFn: () => get<SymbolOptionLevelsHistory>(`/symbols/${enc(key!)}/option-levels/history?timeframe=${timeframe}&range=${range}`),
+    enabled: !!key && enabled,
+    placeholderData: keepPreviousData,
+    retry: 0,
+    staleTime: 10 * 60_000,
   })
 
 /** McClellan's Timing Models placed on the chart's calendar (forecasts change biweekly). */

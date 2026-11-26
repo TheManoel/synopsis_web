@@ -1225,22 +1225,80 @@ export interface Seasonality {
   warnings: string[]
 }
 
-// ------------------------------------------------------------ option levels on a price chart
-export interface PriceLevel {
+// ------------------------------------------------------------ analyst option levels on a price chart
+export type AnalystLevelKind =
+  | 'call_wall' | 'put_wall' | 'gamma_flip' | 'vol_trigger' | 'call_wall_0dte' | 'put_wall_0dte'
+  | 'em_session_hi' | 'em_session_lo' | 'em_week_hi' | 'em_week_lo'
+
+/** A post of the analyst and the session it applies to. */
+export interface LevelSource {
+  ref: string
+  url: string | null
+  known_at: string
+  session: string
+  /** Published with the session already open. */
+  late: boolean
+}
+
+export interface AnalystLevel {
+  kind: AnalystLevelKind
   value: number
-  kind: 'call_wall' | 'put_wall' | 'gamma_flip' | 'max_pain' | 'em_session_hi' | 'em_session_lo' | 'em_week_hi' | 'em_week_lo'
   label: string
+  text: string
+  /** Sessions since its post (0 = published for this session). */
+  age: number
+  source: LevelSource
+  /** The post's line it comes from. */
+  evidence: string
+  /** Other figures the same post gives for this level. */
+  issues: string[]
+  /** What the session did with the level (only once it has traded). */
+  reaction: string | null
+}
+
+/** The close the author states against ours: the alignment proof. */
+export interface CloseCheck {
+  stated: number
+  session: string
+  ours: number | null
+  diff_pct: number | null
+  ok: boolean
   text: string
 }
 
 export interface SymbolOptionLevels {
   key: string
   applies: boolean
-  underlying: string | null
-  spot: number | null
-  spot_time: string | null
-  levels: PriceLevel[]
+  feed: string | null
+  feed_label: string | null
+  binding: string | null
+  as_of: string | null
+  first_session: string | null
+  last_session: string | null
+  prior_session: string | null
+  prior_close: number | null
+  bar: { session: string; open: number; high: number; low: number; close: number } | null
+  levels: AnalystLevel[]
   regime: string | null
+  check: CloseCheck | null
+  sources: LevelSource[]
+  rejected: string[]
+  warnings: string[]
+}
+
+export type LevelHistoryKind = 'call_wall' | 'put_wall' | 'gamma_flip' | 'vol_trigger' | 'em_session_hi' | 'em_session_lo'
+
+/** The levels in force on every session of the chart, drawn as steps. */
+export interface SymbolOptionLevelsHistory {
+  key: string
+  applies: boolean
+  feed_label: string | null
+  dates: string[]
+  series: Partial<Record<LevelHistoryKind, (number | null)[]>>
+  /** Sessions with a post of their own (no carry-over). */
+  published: string[]
+  alignment: string | null
+  mismatches: CloseCheck[]
   warnings: string[]
 }
 

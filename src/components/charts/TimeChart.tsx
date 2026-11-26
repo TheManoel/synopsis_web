@@ -5,6 +5,7 @@ import {
   HistogramSeries,
   LineSeries,
   LineStyle,
+  LineType,
   PriceScaleMode,
   createChart,
   createSeriesMarkers,
@@ -38,8 +39,10 @@ export interface Marker {
 export type SeriesSpec =
   /** `whitespace`: sessions after the last bar (no value yet) so markers can sit in the future. */
   | { type: 'candles'; id: string; label: string; data: { time: string; open: number; high: number; low: number; close: number }[]; format?: (v: number) => string; markers?: Marker[]; whitespace?: string[] }
-  /** `hidden`: no line, only its value in the legend (a level drawn as zones). */
-  | { type: 'line'; id: string; label: string; data: Pt[]; color: string; width?: 1 | 2 | 3; dashed?: boolean; hidden?: boolean; format?: (v: number) => string; markers?: Marker[]; whitespace?: string[] }
+  /** `hidden`: no line, only its value in the legend (a level drawn as zones).
+   * `step`: a level that holds until the next session changes it (no slope between values).
+   * `axisValue`: its last value on the price axis (by default only the first series'). */
+  | { type: 'line'; id: string; label: string; data: Pt[]; color: string; width?: 1 | 2 | 3; dashed?: boolean; hidden?: boolean; step?: boolean; axisValue?: boolean; format?: (v: number) => string; markers?: Marker[]; whitespace?: string[] }
   | { type: 'histogram'; id: string; label: string; data: Pt[]; color: string; negativeColor?: string; format?: (v: number) => string }
 
 export interface PaneSpec {
@@ -92,6 +95,7 @@ export function TimeChart({
   notes,
   current = false,
   live,
+  onPick,
 }: {
   panes: PaneSpec[]
   height?: number
@@ -106,10 +110,17 @@ export function TimeChart({
   current?: boolean
   /** The series ends in provisional bars (from the quote provider, not yet stored). */
   live?: LiveQuote | null
+  /** A click on a session (to travel to it). */
+  onPick?: (time: string) => void
 }) {
   const host = useRef<HTMLDivElement>(null)
   const saved = useRef<{ key: string; range: { from: number; to: number } } | null>(null)
   const vars = useCssVars(THEME_VARS)
+  // Read at click time: a new handler each render must not rebuild the chart.
+  const onPickRef = useRef(onPick)
+  useEffect(() => {
+    onPickRef.current = onPick
+  }, [onPick])
   const [hover, setHover] = useState<{ time: string | null; values: Record<string, number | null> }>({ time: null, values: {} })
 
   const lastValues = useMemo(() => {
@@ -184,7 +195,8 @@ export function TimeChart({
             {
               color: resolve(s.color), lineWidth: s.width ?? 2, lineStyle: s.dashed ? LineStyle.Dashed : LineStyle.Solid,
               ...priceLine(current && paneIndex === 0 && i === 0 && !s.hidden),
-              lastValueVisible: i === 0 && !s.hidden, crosshairMarkerRadius: 3,
+              lastValueVisible: (i === 0 || !!s.axisValue) && !s.hidden, crosshairMarkerRadius: 3,
+              ...(s.step ? { lineType: LineType.WithSteps } : {}),
               lineVisible: !s.hidden, crosshairMarkerVisible: !s.hidden,
               ...(priceFormat ? { priceFormat } : {}),
             },
@@ -267,9 +279,14 @@ export function TimeChart({
       setHover({ time: String(param.time), values })
     }
     chart.subscribeCrosshairMove(onMove)
+    const onClick = (param: MouseEventParams<Time>) => {
+      if (param.time && onPickRef.current) onPickRef.current(String(param.time))
+    }
+    chart.subscribeClick(onClick)
     return () => {
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRange)
       chart.unsubscribeCrosshairMove(onMove)
+      chart.unsubscribeClick(onClick)
       chart.remove()
     }
   }, [panes, vars, rangeKey, current])
@@ -327,7 +344,7 @@ export function TimeChart({
             : <span className="text-ink-3">Pasa el cursor por una zona para ver cómo se forma: sus puntos, desde cuándo es el nivel y por qué deja de serlo.</span>}
         </div>
       )}
-      <div ref={host} style={{ height }} className="w-full" />
+      <div ref={host} style={{ height }} className={`w-full ${onPick ? 'cursor-pointer' : ''}`} />
     </div>
   )
 }
