@@ -17,6 +17,12 @@ import type {
   RelativeLine,
   RotationBoard,
   RotationUniverseRef,
+  RsBoard,
+  RsGroupSeries,
+  RsHeatmap,
+  RsMemberSeries,
+  RsScope,
+  RsUniverse,
   RulesPreview,
   RulesRequest,
   SaveStrategyRequest,
@@ -310,3 +316,56 @@ export function useSaveWatchlist() {
     onSuccess: (data) => qc.setQueryData(WATCHLIST, data),
   })
 }
+
+// ---------------------------------------------------------------- relative strength
+
+export const useRsUniverses = () =>
+  useQuery({ queryKey: ['rs', 'universes'], queryFn: () => get<RsUniverse[]>('/rs/universes') })
+
+export const useRsBoard = (universe: string, asOf: string | null, delta: number) =>
+  useQuery({
+    queryKey: ['rs', 'board', universe, asOf, delta],
+    queryFn: () => get<RsBoard>(`/rs/${universe}/board?delta=${delta}${asOf ? `&as_of=${asOf}` : ''}`),
+    placeholderData: keepPreviousData,
+    retry: 0,
+  })
+
+export const useRsHeatmap = (universe: string, scope: RsScope, sector: string | null, lens: string, weeks: number, asOf: string | null) =>
+  useQuery({
+    queryKey: ['rs', 'heatmap', universe, scope, sector, lens, weeks, asOf],
+    queryFn: () =>
+      get<RsHeatmap>(
+        `/rs/${universe}/heatmap?scope=${scope}&lens=${lens}&weeks=${weeks}${sector ? `&sector=${enc(sector)}` : ''}${asOf ? `&as_of=${asOf}` : ''}`,
+      ),
+    placeholderData: keepPreviousData,
+    retry: 0,
+  })
+
+export type RsGroupRef = { universe: string; scope: RsScope; code: string }
+
+const asOfQ = (asOf: string | null) => (asOf ? `&as_of=${asOf}` : '')
+
+const groupHistory = (g: RsGroupRef, range: string, asOf: string | null) => ({
+  queryKey: ['rs', 'group', g.universe, g.scope, g.code, range, asOf],
+  queryFn: () => get<RsGroupSeries>(`/rs/${g.universe}/groups/${g.scope}/${enc(g.code)}/history?range=${range}${asOfQ(asOf)}`),
+  retry: 0,
+})
+
+export const useRsGroupHistory = (g: RsGroupRef | null, range: string, asOf: string | null) =>
+  useQuery({ ...groupHistory(g ?? { universe: '', scope: 'sector', code: '' }, range, asOf), enabled: !!g, placeholderData: keepPreviousData })
+
+export const useRsGroupHistories = (groups: RsGroupRef[], range: string, asOf: string | null) =>
+  useQueries({ queries: groups.map((g) => groupHistory(g, range, asOf)) })
+
+const memberHistory = (key: string, universe: string | null, range: string, asOf: string | null) => ({
+  queryKey: ['rs', 'member', key, universe, range, asOf],
+  queryFn: () =>
+    get<RsMemberSeries>(`/rs/members/${enc(key)}/history?range=${range}${universe ? `&universe=${universe}` : ''}${asOfQ(asOf)}`),
+  retry: 0,
+})
+
+export const useRsMemberHistory = (key: string | null, universe: string | null, range: string, asOf: string | null) =>
+  useQuery({ ...memberHistory(key ?? '', universe, range, asOf), enabled: !!key, placeholderData: keepPreviousData })
+
+export const useRsMemberHistories = (members: { key: string; universe: string }[], range: string, asOf: string | null) =>
+  useQueries({ queries: members.map((m) => memberHistory(m.key, m.universe, range, asOf)) })

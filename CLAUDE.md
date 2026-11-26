@@ -25,12 +25,14 @@ API_ONLY=1 poetry run uvicorn src.applications.signal_lab.web.app:create_app --f
 - `src/components/` — `Shell` (navegación + cinta), `ui.tsx` (primitivas), `charts/`
   (`TimeChart` series temporales multipanel; `xy.tsx` gráficos SVG: líneas y barras por strike;
   `RotationMap` RRG en SVG), `strategy/RulesEditor` (editor de reglas del Strategy Lab),
+  `rs/` (tablas, mapa de calor, horizontes, historias y comparación de Fuerza relativa),
   `symbols/` (buscador, paleta ⌘K, watchlist, selector de indicadores, `SymbolChart`)
 - `src/pages/` — `MarketSectionPage` (índices, materias primas, divisas y bonos),
   `BreadthPage` (NYSE), `GroupsPage` (grupos y rotación, RRG), `OptionsPage` (PoC SPX),
-  `StrategyLabPage` (plantillas de estrategia y backtest), `SymbolsPage` (análisis de un símbolo)
+  `StrategyLabPage` (plantillas de estrategia y backtest), `SymbolsPage` (análisis de un símbolo),
+  `RelativeStrengthPage` (fuerza relativa por universo → sector → industria → valor)
 - Backend de este front en el core: `src/applications/synopsis/` (rutas + servicios),
-  `src/core/markets/`, `src/core/options/`, `src/core/strategy_lab/`, `src/core/symbols/` (indicadores,
+  `src/core/markets/`, `src/core/options/`, `src/core/relative_strength/` (histórico RS), `src/core/strategy_lab/`, `src/core/symbols/` (indicadores,
   fuerza relativa, búsqueda, watchlist), `config/markets/catalog.yaml`,
   `config/markets/rotation.yaml` (universos de grupos), `config/strategy_lab/*.yaml` (plantillas;
   `user/` = estrategias guardadas desde el editor), `config/synopsis/user/watchlist.yaml` (watchlist)

@@ -940,3 +940,147 @@ export interface IndicatorSeries {
   reference: SymbolReference | null
   warnings: string[]
 }
+
+// ---------------------------------------------------------------- relative strength (/rs)
+// Leída del histórico guardado del core (analytics.rs_*). Todo valor por lente
+// va indexado por la clave de lente (`rs_12m`, `rs_3m`, `rs_1m`); null = sin valor.
+
+export type RsLensKey = string
+export type ByLens<T> = Record<RsLensKey, T>
+
+export interface RsLensRef {
+  key: RsLensKey
+  label: string
+  description: string
+  return_bars: number
+}
+
+export interface RsUniverse {
+  code: string
+  label: string
+  benchmark_label: string
+  first_bar: string
+  last_bar: string
+  n_bars: number
+  market_last_bar: string | null
+  lag_sessions: number | null
+  lenses: RsLensRef[]
+  deltas: { bars: number; label: string }[]
+  leader_percentile: number
+  laggard_percentile: number
+  warnings: string[]
+}
+
+export interface RsBreadth {
+  n_with_excess: number
+  median_excess: number | null
+  pct_beating: number | null
+  median_return: number | null
+}
+
+export interface RsGroupLens {
+  n_members: number
+  mean_percentile: number
+  pct_leaders: number
+  pct_laggards: number
+  net_participation: number
+  mean_delta: number | null
+  median_excess: number | null
+  pct_beating: number | null
+}
+
+export type RsScope = 'sector' | 'industry'
+
+export interface RsGroup {
+  scope: RsScope
+  code: string
+  name: string
+  sector_code: string | null
+  n_members: number
+  lenses: ByLens<RsGroupLens>
+}
+
+export interface RsMember {
+  key: string
+  ticker: string
+  name: string
+  sector_code: string | null
+  industry_code: string | null
+  percentile: ByLens<number | null>
+  delta: ByLens<number | null>
+  within_sector: ByLens<number | null>
+  within_industry: ByLens<number | null>
+  ret: ByLens<number | null>
+  excess: ByLens<number | null>
+  price_from_high: number | null
+  rs_line_from_high: number | null
+}
+
+export interface RsBoard {
+  universe: string
+  universe_label: string
+  benchmark: string | null
+  requested: string | null
+  bar_date: string
+  delta_bars: number
+  delta_date: string | null
+  n_members: number
+  n_ranked: ByLens<number>
+  membership_as_of: string
+  leader_percentile: number
+  laggard_percentile: number
+  lenses: RsLensRef[]
+  summary: ByLens<RsBreadth>
+  sectors: RsGroup[]
+  industries: RsGroup[]
+  members: RsMember[]
+  warnings: string[]
+}
+
+export interface RsGroupSeries {
+  universe: string
+  scope: RsScope
+  code: string
+  name: string
+  sector_code: string | null
+  sampling: 'daily' | 'weekly'
+  dates: string[]
+  mean_percentile: ByLens<(number | null)[]>
+  pct_leaders: ByLens<(number | null)[]>
+  pct_laggards: ByLens<(number | null)[]>
+  n_members: (number | null)[]
+  leader_percentile: number
+  laggard_percentile: number
+  warnings: string[]
+}
+
+export interface RsMemberSeries {
+  key: string
+  ticker: string
+  name: string
+  universe: string | null
+  universes: string[]
+  sector_code: string | null
+  sector_name: string | null
+  industry_code: string | null
+  industry_name: string | null
+  sampling: 'daily' | 'weekly'
+  dates: string[]
+  percentile: ByLens<(number | null)[]>
+  within_sector: ByLens<(number | null)[]>
+  within_industry: ByLens<(number | null)[]>
+  excess: ByLens<(number | null)[]>
+  price_from_high: (number | null)[]
+  rs_line_from_high: (number | null)[]
+  warnings: string[]
+}
+
+export interface RsHeatmap {
+  universe: string
+  scope: RsScope
+  sector: string | null
+  lens: RsLensKey
+  weeks: string[]
+  rows: { code: string; name: string; sector_code: string | null; n_members: number | null; values: (number | null)[] }[]
+  warnings: string[]
+}

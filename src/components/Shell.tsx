@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Activity, ChartCandlestick, FlaskConical, Flame, Landmark, Moon, Orbit, ScanSearch, Search, Sigma, Sun, type LucideIcon } from 'lucide-react'
+import { Activity, ChartCandlestick, FlaskConical, Flame, Gauge, Landmark, Moon, Orbit, ScanSearch, Search, Sigma, Sun, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router'
 import { useSection } from '../lib/api'
@@ -26,7 +26,10 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   },
   {
     title: 'Análisis',
-    items: [{ to: '/simbolos', label: 'Símbolos', icon: ScanSearch }],
+    items: [
+      { to: '/simbolos', label: 'Símbolos', icon: ScanSearch },
+      { to: '/fuerza-relativa', label: 'Fuerza relativa', icon: Gauge },
+    ],
   },
   {
     title: 'Laboratorio',

@@ -7,7 +7,7 @@ metadata:
 
 # Synopsis · estado del proyecto
 
-- **Estado**: v0 hecha el 2026-11-24 (+ Grupos y rotación y Strategy Lab el mismo día; Símbolos el 2026-11-25). Ocho páginas con datos reales; sin tests de front.
+- **Estado**: v0 hecha el 2026-11-24 (+ Grupos y rotación y Strategy Lab el mismo día; Símbolos el 2026-11-25; Fuerza relativa el 2026-11-26). Nueve páginas con datos reales; sin tests de front.
 - **Leer si**: empiezas una sesión en este repo o vas a añadir una feature
 - **Código**: `src/pages/*`, backend en `../screener_core/src/applications/synopsis/`
 
@@ -22,6 +22,7 @@ metadata:
 | Divisas y bonos | `/divisas-bonos` | `/markets/sections/rates_fx` |
 | Opciones (PoC) | `/opciones` | `/options/spx/*` — ver [[project_options_poc]] |
 | Símbolos | `/simbolos/:key` | `/symbols/*` — ver [[project_symbols]] |
+| Fuerza relativa | `/fuerza-relativa` | `/rs/*` — ver [[project_relative_strength]] |
 | Strategy Lab | `/strategy-lab` | `/strategy-lab/*` — ver [[project_strategy_lab]] |
 
 La sección `volatility` del catálogo no tiene página propia: alimenta la cinta superior y el

@@ -10,6 +10,7 @@ const GroupsPage = lazy(() => import('./pages/GroupsPage').then((m) => ({ defaul
 const StrategyLabPage = lazy(() => import('./pages/StrategyLabPage').then((m) => ({ default: m.StrategyLabPage })))
 const SymbolsPage = lazy(() => import('./pages/SymbolsPage').then((m) => ({ default: m.SymbolsPage })))
 const SymbolsIndex = lazy(() => import('./pages/SymbolsPage').then((m) => ({ default: m.SymbolsIndex })))
+const RelativeStrengthPage = lazy(() => import('./pages/RelativeStrengthPage').then((m) => ({ default: m.RelativeStrengthPage })))
 const OptionsPage = lazy(() => import('./pages/OptionsPage').then((m) => ({ default: m.OptionsPage })))
 
 const client = new QueryClient({
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="/opciones" element={<OptionsPage />} />
             <Route path="/simbolos" element={<SymbolsIndex />} />
             <Route path="/simbolos/:key" element={<SymbolsPage />} />
+            <Route path="/fuerza-relativa" element={<RelativeStrengthPage />} />
             <Route path="/strategy-lab" element={<StrategyLabPage />} />
             <Route path="*" element={<Navigate to="/indices" replace />} />
           </Routes>

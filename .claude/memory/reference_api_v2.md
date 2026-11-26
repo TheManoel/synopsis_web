@@ -10,7 +10,7 @@ metadata:
 - **Estado**: estable para v0; los DTO están reflejados en `src/lib/types.ts`
 - **Leer si**: añades un endpoint, cambias un DTO o buscas dónde se calcula una cifra
 - **Código**: rutas `src/applications/synopsis/routes.py`, DTO `models.py`, servicios
-  `markets_service.py`, `rotation_service.py`, `options_service.py`, `strategy_service.py` y `symbols_service.py` (todo en `../screener_core`)
+  `markets_service.py`, `rotation_service.py`, `options_service.py`, `strategy_service.py`, `symbols_service.py` y `rs_service.py` (todo en `../screener_core`)
 
 | endpoint | parámetros | cálculo en el core |
 |---|---|---|
@@ -35,6 +35,11 @@ metadata:
 | `GET /symbols/indicators` | — | catálogo `core/symbols/domain/indicators.py` + marcos y ventanas |
 | `GET /symbols/search` | `q`, `limit` | `SqlSymbolDirectory.candidates` + `core/symbols/services/search.rank_hits` |
 | `GET/PUT /symbols/watchlist` | PUT `{keys}` (lista entera) | `watchlist_store` (YAML) + `compute_reading` por clave |
+| `GET /rs/universes` | — | calendario guardado + retraso frente a la base (`board.sessions_after`) |
+| `GET /rs/{u}/board` | `as_of`, `delta` 5\|21\|63 | barra guardada entera: `group_rows_from` + `board.excess_breadth`; 422 si la fecha precede al histórico |
+| `GET /rs/{u}/groups/{scope}/{code}/history` | `range`, `as_of` | `rs_group_bar` (80/20), semanal si > 3 años (`board.weekly_last`) |
+| `GET /rs/{u}/heatmap` | `scope`, `sector`, `lens`, `weeks` ≤ 260, `as_of` | media semanal por grupo |
+| `GET /rs/members/{key}/history` | `universe`, `range`, `as_of` | `rs_member_lens` + `rs_member_bar`; sin histórico → `universe: null` + aviso |
 | `GET /symbols/{key}` | — | ficha: lectura, técnica, referencias, tabla relativa, percentil RS, etapa, BPA (caché 10 min) |
 | `GET /symbols/{key}/chart` | `timeframe` d\|w\|m, `range` 3m…max | OHLCV columnar + eventos de resultados |
 | `GET /symbols/{key}/indicator` | `spec`, `timeframe`, `range` | `indicator_engine.compute` (422 = spec rechazada) |
