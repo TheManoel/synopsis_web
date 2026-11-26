@@ -73,8 +73,6 @@ Cookie `substack.sid` → Variable de Airflow `montoya_substack_sid`, se pega en
 Fuentes; con cookie, la siguiente carga completa los incompletos (barrido entero del archivo).
 El usuario se suscribió y pegó la cookie el 2026-11-26: la carga de las 13:20 UTC completó los de pago (vista previa → completo) hacia atrás. Fuentes externas no son solo estas dos: amplitud = suscripción a amplituddemercado.com (endpoint Apps Script), precios/metadatos = yfinance, COT = CFTC. Ver [[project_admin_panel]].
 
-**Pendiente**: extraer los niveles de Montoya (Put/Call Wall, Gamma Flip, VT, movimiento
-implícito) como dato point-in-time — extracción revisada por el usuario, tabla nueva = DDL con
-OK — e histórico diario de la cadena (DDL). Nuestros niveles
-(volumen, ≤45 días) difieren mucho de los suyos (SpotGamma, OI): compararlos es el objetivo.
-Ver [[project_options_poc]], [[feedback_core_computes]].
+**Niveles de Montoya** (hecho 2026-11-26) → [[project_analyst_option_levels]].
+**Pendiente**: histórico diario de nuestra cadena (DDL) para viajar en el tiempo también con
+nuestros niveles y compararlos con los suyos. Ver [[project_options_poc]], [[feedback_core_computes]].

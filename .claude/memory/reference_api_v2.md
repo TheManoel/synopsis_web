@@ -26,6 +26,8 @@ metadata:
 | `GET /options/spx/summary` | `basis`, `max_days`, `refresh` | `core/options/services/chain_analytics` |
 | `GET /options/spx/expiries/{date}` | `basis`, `band` | `expiry_detail` |
 | `GET /options/spx/vol-context` | `bars` | `core/options/services/vol_context` |
+| `GET /symbols/{key}/option-levels` | `as_of` | `option_levels_service.snapshot` → `core/options/services/analyst_levels` |
+| `GET /symbols/{key}/option-levels/history` | `timeframe` (solo `d`), `range` | `option_levels_service.history` |
 | `GET /strategy-lab/catalog` | — | plantillas `config/strategy_lab/*.yaml` + guardadas `user/*.yaml` + instrumentos `price` + `vocabulary` del editor (con `starter`, `params`/`any_scale` por condición) + `warnings` |
 | `POST /strategy-lab/rules` | `{strategy, params}` o `{rules}` | composición editable + textos + series (etiqueta/escala) + calentamiento; 422 en palabras |
 | `POST /strategy-lab/strategies` | `{label, description, rules, based_on, replace_id}` | escribe `config/strategy_lab/user/<id>.yaml`; 409 si el nombre existe |
