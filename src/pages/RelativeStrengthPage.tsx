@@ -399,6 +399,9 @@ export function RelativeStrengthPage() {
               members={scopeMembers}
               lenses={lenses}
               lens={lens}
+              shortHorizons={board.short_horizons ?? []}
+              benchmark={board.benchmark}
+              pastBar={viewingPast ? board.bar_date : null}
               deltaLabel={deltaLabel}
               within={level === 'industry' ? 'industry' : 'sector'}
               industryName={(c) => (c ? industriesBy.get(c)?.name ?? c : '—')}

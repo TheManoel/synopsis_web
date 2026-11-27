@@ -2,10 +2,11 @@ import { CalendarClock, CandlestickChart, LineChart, Sigma } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { ApiError, useIndicatorSeries, useSymbolChart, useSymbolOptionLevels, useSymbolOptionLevelsHistory, useSymbolTiming } from '../../lib/api'
 import { type ChartPrefs, useChartPrefs } from '../../lib/chartPrefs'
-import { fmtLevel, fmtUnit } from '../../lib/format'
+import { fmtLevel } from '../../lib/format'
 import { seriesColor } from '../../lib/theme'
-import type { IndicatorCatalog, IndicatorSeries } from '../../lib/types'
+import type { IndicatorCatalog } from '../../lib/types'
 import { TimeChart, type Marker, type PaneSpec, type SeriesSpec } from '../charts/TimeChart'
+import { indicatorSeries } from './indicatorSeries'
 import { Card, ErrorState, Segmented, Skeleton, Warnings } from '../ui'
 import { IndicatorBar, type ChipState } from './IndicatorPicker'
 import { OptionLevelsPanel } from './OptionLevelsPanel'
@@ -14,47 +15,6 @@ import { TimingPanel } from './TimingPanel'
 import { timingOverlay, visibleSignals } from './timingOverlay'
 
 const TOGGLE = 'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium'
-
-/** Lines of an indicator, coloured by the rules of the design system: an
- * overlay is one entity (its slot's colour, bands dashed); a pane's outputs take
- * the series order, histograms carry the sign. */
-function indicatorSeries(ind: IndicatorSeries, slot: number, candleUp: Map<string, boolean>): SeriesSpec[] {
-  const fmt = (v: number) => fmtUnit(v, ind.unit)
-  const multi = ind.lines.length > 1
-  let lineIdx = 0
-  return ind.lines.map((line) => {
-    const id = `${ind.spec}|${line.key}`
-    // «Volumen 50 · Volumen» says it twice: an output named like its indicator is just its name.
-    const label = !multi ? ind.label : ind.label.toLowerCase().startsWith(line.label.toLowerCase()) ? line.label : `${ind.label} · ${line.label}`
-    if (line.style === 'histogram') {
-      const isVolume = ind.id === 'volume'
-      return {
-        type: 'histogram',
-        id,
-        label,
-        format: fmt,
-        color: isVolume ? 'var(--up-vol)' : 'var(--up)',
-        negativeColor: isVolume ? 'var(--down-vol)' : 'var(--down)',
-        data: ind.dates.map((t, i) => ({
-          time: t,
-          value: line.values[i],
-          color: isVolume ? (candleUp.get(t) === false ? 'var(--down-vol)' : 'var(--up-vol)') : undefined,
-        })),
-      }
-    }
-    const color = ind.placement === 'overlay' ? seriesColor(slot) : seriesColor(lineIdx++)
-    return {
-      type: 'line',
-      id,
-      label,
-      color,
-      width: ind.placement === 'overlay' ? (line.style === 'dashed' ? 1 : 2) : line.style === 'dashed' ? 1 : 2,
-      dashed: line.style === 'dashed',
-      format: fmt,
-      data: ind.dates.map((t, i) => ({ time: t, value: line.values[i] })),
-    }
-  })
-}
 
 export function SymbolChart({ symbolKey, catalog }: { symbolKey: string; catalog: IndicatorCatalog }) {
   const { prefs, update, add, replace, remove, reset } = useChartPrefs(catalog.default_specs)

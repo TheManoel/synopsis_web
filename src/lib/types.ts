@@ -1249,6 +1249,17 @@ export interface RsMember {
   excess: ByLens<number | null>
   price_from_high: number | null
   rs_line_from_high: number | null
+  /** Return (%) and excess over the benchmark (pp) over the board's short horizons (1W, 2W). */
+  short_ret: Record<string, number | null>
+  short_excess: Record<string, number | null>
+}
+
+/** A short return window of the board (not a lens: no percentile, nothing stored). */
+export interface RsShortHorizon {
+  key: string
+  bars: number
+  start: string | null
+  benchmark_return: number | null
 }
 
 export interface RsBoard {
@@ -1269,6 +1280,7 @@ export interface RsBoard {
   sectors: RsGroup[]
   industries: RsGroup[]
   members: RsMember[]
+  short_horizons: RsShortHorizon[]
   warnings: string[]
 }
 

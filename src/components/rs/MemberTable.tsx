@@ -1,13 +1,14 @@
 import clsx from 'clsx'
-import { Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { fmtSigned } from '../../lib/format'
-import type { RsLensRef, RsMember } from '../../lib/types'
+import { CandlestickChart, Search } from 'lucide-react'
+import { Fragment, useMemo, useState } from 'react'
+import { fmtDate, fmtPct, fmtSigned } from '../../lib/format'
+import type { RsLensRef, RsMember, RsShortHorizon } from '../../lib/types'
 import { Delta, Segmented } from '../ui'
 import { fmtFromHigh, fmtPp, sortBy, type Sort } from '../../lib/rs'
 import { PctCell, PinButton, SortTh } from './parts'
+import { PricePreview } from './PricePreview'
 
-type Key = 'name' | `pct:${string}` | 'delta' | 'within' | 'excess' | 'dd' | 'ddrs'
+type Key = 'name' | `pct:${string}` | `short:${string}` | 'delta' | 'within' | 'excess' | 'dd' | 'ddrs'
 type Band = 'all' | 'leaders' | 'laggards'
 const PAGE = 50
 
@@ -16,13 +17,18 @@ const PAGE = 50
  * three horizons side by side are the reading: a strong 12M with a weak 1M, or
  * the reverse, is the information, not noise. The distances below the 52-week
  * high of the price and of the RS line separate an intact leader from one that
- * leads the ranking for what it did months ago.
+ * leads the ranking for what it did months ago. The 1W/2W returns (and their
+ * excess over the index, in the tooltip) say what the member did lately; each
+ * row can unfold a price preview right below it.
  */
 export function MemberTable({
   universe,
   members,
   lenses,
   lens,
+  shortHorizons,
+  benchmark,
+  pastBar,
   deltaLabel,
   within,
   industryName,
@@ -37,6 +43,10 @@ export function MemberTable({
   members: RsMember[]
   lenses: RsLensRef[]
   lens: string
+  shortHorizons: RsShortHorizon[]
+  benchmark: string | null
+  /** The board's bar when it is not the latest (marked on the preview). */
+  pastBar: string | null
   deltaLabel: string
   within: 'sector' | 'industry'
   industryName: (code: string | null) => string
@@ -51,6 +61,7 @@ export function MemberTable({
   const [band, setBand] = useState<Band>('all')
   const [text, setText] = useState('')
   const [all, setAll] = useState(false)
+  const [preview, setPreview] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     const q = text.trim().toLowerCase()
@@ -66,6 +77,7 @@ export function MemberTable({
     const w = within === 'industry' ? 'within_industry' : 'within_sector'
     const get = (m: RsMember) => {
       if (sort.key.startsWith('pct:')) return m.percentile[sort.key.slice(4)]
+      if (sort.key.startsWith('short:')) return m.short_ret?.[sort.key.slice(6)]
       switch (sort.key) {
         case 'name': return m.ticker
         case 'delta': return m.delta[lens]
@@ -81,6 +93,8 @@ export function MemberTable({
 
   const shown = all ? rows : rows.slice(0, PAGE)
   const lensLabel = lenses.find((l) => l.key === lens)?.label ?? lens
+  const bench = benchmark ?? 'el índice'
+  const columns = 9 + (showIndustry ? 1 : 0) + lenses.length + shortHorizons.length
 
   return (
     <div>
@@ -108,7 +122,7 @@ export function MemberTable({
         <span className="text-[11px] text-ink-3">{filtered.length} de {members.length} valores</span>
       </div>
       <div className="scroll-thin max-h-[640px] overflow-auto">
-        <table className="w-full min-w-[980px] text-[13px]">
+        <table className="w-full min-w-[1120px] text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface">
             <tr className="text-[11px] text-ink-3">
               <th className="w-10 py-2 pl-4 text-right font-medium">#</th>
@@ -129,17 +143,34 @@ export function MemberTable({
                 En su {within === 'industry' ? 'industria' : 'sector'}
               </SortTh>
               <SortTh k="excess" sort={sort} onSort={setSort} title={`Rentabilidad ${lensLabel} menos la del índice, en puntos porcentuales`}>Exceso {lensLabel}</SortTh>
+              {shortHorizons.map((h) => (
+                <SortTh
+                  key={h.key}
+                  k={`short:${h.key}`}
+                  sort={sort}
+                  onSort={setSort}
+                  title={
+                    `Rentabilidad de las últimas ${h.bars} sesiones` +
+                    (h.start ? ` (desde el cierre del ${fmtDate(h.start)})` : '') +
+                    (h.benchmark_return != null ? `; ${bench}: ${fmtPct(h.benchmark_return, 1)}` : '') +
+                    '. El exceso sobre el índice, al pasar el cursor por la cifra.'
+                  }
+                >
+                  Rent. {h.key}
+                </SortTh>
+              ))}
               <SortTh k="dd" sort={sort} onSort={setSort} title="Distancia del precio a su máximo de 52 semanas">Precio vs máx.</SortTh>
               <SortTh k="ddrs" sort={sort} onSort={setSort} title="Distancia de la línea de fuerza relativa (precio / índice) a su máximo de 52 semanas: si sigue batiendo al índice">
                 Línea RS vs máx.
               </SortTh>
+              <th className="w-8" aria-label="Vista previa del precio" />
               <th className="w-8 pr-3" aria-label="Comparar" />
             </tr>
           </thead>
           <tbody>
             {shown.map((m, i) => (
+              <Fragment key={m.key}>
               <tr
-                key={m.key}
                 onClick={() => onOpen(m)}
                 className={clsx('cursor-pointer border-t border-line hover:bg-surface-2', m.key === selected && 'bg-accent-soft')}
               >
@@ -178,13 +209,47 @@ export function MemberTable({
                 <td className="px-2 py-1.5 text-right">
                   <PctCell value={(within === 'industry' ? m.within_industry : m.within_sector)[lens]} />
                 </td>
-                <td className="num px-2 py-2 text-right text-ink-2">{fmtPp(m.excess[lens])}</td>
+                <td className="num whitespace-nowrap px-2 py-2 text-right text-ink-2">{fmtPp(m.excess[lens])}</td>
+                {shortHorizons.map((h) => {
+                  const r = m.short_ret?.[h.key]
+                  const x = m.short_excess?.[h.key]
+                  return (
+                    <td key={h.key} className="whitespace-nowrap px-2 py-2 text-right" title={x != null ? `Exceso sobre ${bench}: ${fmtPp(x)}` : 'Sin cierre en la ventana: ver avisos'}>
+                      <Delta value={r} text={fmtPct(r, 1)} className="text-xs" />
+                    </td>
+                  )
+                })}
                 <td className="num px-2 py-2 text-right text-ink-2">{fmtFromHigh(m.price_from_high)}</td>
                 <td className="num px-2 py-2 text-right text-ink-2">{fmtFromHigh(m.rs_line_from_high)}</td>
+                <td className="py-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setPreview((p) => (p === m.key ? null : m.key))
+                    }}
+                    title={preview === m.key ? 'Ocultar el gráfico' : 'Ver el gráfico de precio debajo de la fila'}
+                    aria-label={preview === m.key ? `Ocultar el gráfico de ${m.ticker}` : `Ver el gráfico de ${m.ticker}`}
+                    aria-expanded={preview === m.key}
+                    className={clsx(
+                      'inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+                      preview === m.key ? 'bg-accent-soft text-accent' : 'text-ink-3 hover:bg-surface-3 hover:text-ink-2',
+                    )}
+                  >
+                    <CandlestickChart size={13} />
+                  </button>
+                </td>
                 <td className="py-2 pr-3">
                   <PinButton item={{ universe, kind: 'member', code: m.key, label: m.ticker }} />
                 </td>
               </tr>
+              {preview === m.key && (
+                <tr>
+                  <td colSpan={columns} className="p-0">
+                    <PricePreview symbolKey={m.key} label={`${m.ticker} · ${m.name}`} barDate={pastBar} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>

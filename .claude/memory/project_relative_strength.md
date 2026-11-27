@@ -50,6 +50,16 @@ avisándolo. Sesgo de supervivencia avisado cuando la barra es anterior a `membe
 
 **Estado en URL**: `u`, `lens`, `d` (5/21/63), `date`, `sector`, `industry`, `sym`, `range`.
 
+**Rent. 1W/2W y vista previa** (2026-11-27): el usuario eligió *rentabilidad*, no lentes RS
+1W/2W, porque las lentes exigen rehacer todo `analytics.rs_*`. Se calcula al servir el tablero
+(`core/relative_strength/services/short_returns.py`): sobre el calendario del índice, con un
+cierre de retraso como máximo y los huecos contados en un aviso. Sin percentil, Δ ni mapa de
+calor. Cada fila despliega `rs/PricePreview` (diario 1A, SMA 50/200 y volumen sobre `TimeChart`)
+con un enlace a Símbolos; en el pasado marca la barra RS.
+**Deuda**: el histórico guardado arrastra los precios parados (EA sin cierres desde el
+2026-08-10 sale el 2026-11-25 con ret 1M = 0 y percentil 45). Arreglarlo exige rehacer el
+histórico, así que hace falta el OK del usuario.
+
 **Límites / siguiente**: solo SPX500 y STOXX 600 (lo que tiene histórico); valores fuera de esos
 índices solo muestran la línea RS; nombres de industria nuevos caen al inglés del proveedor
 (añadir a `rs_taxonomy_labels.yaml`); el tablero pesa ~300 KB sin gzip; sin tests de front.
