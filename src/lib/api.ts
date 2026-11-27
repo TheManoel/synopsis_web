@@ -44,6 +44,9 @@ import type {
   Section,
   StrategyLabCatalog,
   StrategyTemplate,
+  LabUniverses,
+  UniverseBacktestJob,
+  UniverseBacktestRequest,
   SymbolChart,
   SymbolHit,
   SymbolProfile,
@@ -254,6 +257,38 @@ export function useDeleteStrategy() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['strategy-lab', 'catalog'] }),
   })
 }
+
+// ------------------------------------------------- strategy lab · universe
+
+export const useLabUniverses = () =>
+  useQuery({
+    queryKey: ['strategy-lab', 'universes'],
+    queryFn: () => get<LabUniverses>('/strategy-lab/universes'),
+    staleTime: 10 * 60_000,
+  })
+
+/** Queues a backtest on a universe; a 422 is the core refusing the values before queuing. */
+export function useStartUniverseBacktest() {
+  return useMutation({
+    mutationFn: (req: UniverseBacktestRequest) => post<UniverseBacktestJob>('/strategy-lab/universe-backtest', req),
+  })
+}
+
+const RUNNING_STATES = new Set(['queued', 'running'])
+
+/** A queued or running job, polled every second until it ends; a finished one is kept. */
+export const useUniverseJob = (id: string | null) =>
+  useQuery({
+    queryKey: ['strategy-lab', 'universe-job', id],
+    queryFn: () => get<UniverseBacktestJob>(`/strategy-lab/universe-backtest/${enc(id!)}`),
+    enabled: !!id,
+    refetchInterval: (q) => (q.state.data && !RUNNING_STATES.has(q.state.data.state) ? false : 1000),
+    staleTime: Infinity,
+    retry: 0,
+  })
+
+export const cancelUniverseJob = (id: string) =>
+  request<UniverseBacktestJob>(`/strategy-lab/universe-backtest/${enc(id)}`, { method: 'DELETE' })
 
 // ---------------------------------------------------------------- symbols
 

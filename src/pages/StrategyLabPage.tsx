@@ -1,11 +1,23 @@
 import clsx from 'clsx'
-import { FlaskConical, LoaderCircle, Pencil, Play, Plus, Save, Trash2, Undo2 } from 'lucide-react'
+import { FlaskConical, LoaderCircle, Pencil, Play, Plus, Save, Trash2, Undo2, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { BacktestResults } from '../components/strategy/BacktestResults'
 import { Field } from '../components/strategy/form'
 import { RulesEditor } from '../components/strategy/RulesEditor'
+import { UniverseBacktestResults, UniverseJobProgress } from '../components/strategy/UniverseBacktestResults'
 import { Card, ErrorState, InfoTip, PageHeader, Pill, Segmented, Skeleton, Warnings } from '../components/ui'
-import { fetchRules, useBacktest, useDeleteStrategy, useRulesPreview, useSaveStrategy, useStrategyLabCatalog } from '../lib/api'
+import {
+  cancelUniverseJob,
+  fetchRules,
+  useBacktest,
+  useDeleteStrategy,
+  useLabUniverses,
+  useRulesPreview,
+  useSaveStrategy,
+  useStartUniverseBacktest,
+  useStrategyLabCatalog,
+  useUniverseJob,
+} from '../lib/api'
 import {
   errorText,
   inputCls,
@@ -17,7 +29,20 @@ import {
   yearsAgo,
   type Preset,
 } from '../lib/strategyForm'
-import type { Backtest, BacktestRequest, Composition, EntryPoint, RulesPreview, StrategyLabCatalog, StrategyTemplate } from '../lib/types'
+import type {
+  Backtest,
+  BacktestRequest,
+  Composition,
+  EntryPoint,
+  LabUniverse,
+  LabUniverses,
+  RulesPreview,
+  StrategyLabCatalog,
+  StrategyTemplate,
+  UniverseBacktest,
+  UniverseBacktestRequest,
+  UniverseSymbol,
+} from '../lib/types'
 
 // ------------------------------------------------------------------ form
 
@@ -25,11 +50,26 @@ import type { Backtest, BacktestRequest, Composition, EntryPoint, RulesPreview, 
 const NEW = '__new__'
 const NEW_LABEL = 'Estrategia nueva'
 
+/** One instrument, or every member of a universe as one portfolio. */
+type Scope = 'asset' | 'universe'
+const SCOPES: { value: Scope; label: string; hint: string }[] = [
+  { value: 'asset', label: 'Un activo', hint: 'Backtest en un solo activo frente a comprarlo y mantenerlo' },
+  { value: 'universe', label: 'Universo', hint: 'Todos los valores de un universo (región, índice, sectores o industrias) como una cartera de N huecos' },
+]
+
 interface FormState {
   /** A catalog id, or NEW (then `rules` holds the strategy). */
   strategy: string
   params: Record<string, string>
+  scope: Scope
   instrument: string
+  /** An instrument opened from a universe's table, outside the market catalog. */
+  extraInstrument: { key: string; label: string } | null
+  universe: string
+  sectors: string[]
+  industries: string[]
+  slots: string
+  draws: string
   preset: Preset
   start: string
   end: string
@@ -49,7 +89,14 @@ function initialForm(cat: StrategyLabCatalog): FormState {
   return {
     strategy: t.id,
     params: paramDefaults(t),
+    scope: 'asset',
     instrument: cat.default_instrument,
+    extraInstrument: null,
+    universe: '',
+    sectors: [],
+    industries: [],
+    slots: '',
+    draws: '',
     preset: '30',
     start: yearsAgo(30),
     end: today(),
@@ -78,6 +125,23 @@ function toRequest(f: FormState, t: StrategyTemplate | null): BacktestRequest {
   }
 }
 
+const numberOr = (raw: string, fallback: number) => {
+  const n = Number(raw)
+  return raw.trim() === '' ? fallback : Number.isFinite(n) ? n : NaN
+}
+
+function toUniverseRequest(f: FormState, t: StrategyTemplate | null, u: LabUniverses): UniverseBacktestRequest {
+  const { instrument: _, ...base } = toRequest(f, t)
+  return {
+    ...base,
+    universe: f.universe || u.default_universe,
+    sectors: f.sectors,
+    industries: f.industries,
+    slots: numberOr(f.slots, u.default_slots),
+    draws: numberOr(f.draws, u.default_draws),
+  }
+}
+
 function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <div className="border-t border-line pt-4 first:border-t-0 first:pt-0">
@@ -87,6 +151,114 @@ function Section({ title, action, children }: { title: string; action?: ReactNod
       </div>
       <div className="space-y-3">{children}</div>
     </div>
+  )
+}
+
+/** Which members: a universe, narrowed optionally to sectors and industries. */
+function UniversePicker({ u, form, set }: { u: LabUniverses; form: FormState; set: (patch: Partial<FormState>) => void }) {
+  const universe: LabUniverse = u.universes.find((x) => x.code === (form.universe || u.default_universe)) ?? u.universes[0]
+  const sectorName = new Map(universe.sectors.map((f) => [f.code, f.name]))
+  const industries = universe.industries.filter((f) => !form.sectors.length || (f.sector_code && form.sectors.includes(f.sector_code)))
+  const industryName = new Map(universe.industries.map((f) => [f.code, f.name]))
+  const toggleSector = (code: string) => {
+    const sectors = form.sectors.includes(code) ? form.sectors.filter((c) => c !== code) : [...form.sectors, code]
+    // An industry outside the sectors left would select nothing: it goes.
+    const keep = universe.industries.filter((f) => !sectors.length || (f.sector_code && sectors.includes(f.sector_code))).map((f) => f.code)
+    set({ sectors, industries: form.industries.filter((c) => keep.includes(c)) })
+  }
+  const chip = 'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium transition-colors'
+  return (
+    <>
+      <Field label="Universo">
+        <select
+          className={inputCls}
+          value={universe.code}
+          onChange={(e) => set({ universe: e.target.value, sectors: [], industries: [] })}
+        >
+          <optgroup label="Regiones (todas las acciones)">
+            {u.universes.filter((x) => x.kind === 'region').map((x) => (
+              <option key={x.code} value={x.code}>
+                {x.label} · {x.n_members.toLocaleString('es-ES')} acciones
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Índices">
+            {u.universes.filter((x) => x.kind === 'index').map((x) => (
+              <option key={x.code} value={x.code}>
+                {x.label} · {x.n_members.toLocaleString('es-ES')} miembros
+              </option>
+            ))}
+          </optgroup>
+        </select>
+      </Field>
+      <p className="text-[11px] leading-relaxed text-ink-3">
+        {universe.membership_note} Referencia: {universe.benchmark_label ?? '—'}.
+      </p>
+      <div>
+        <span className="mb-1 flex items-center justify-between text-xs text-ink-2">
+          Sectores
+          {form.sectors.length > 0 && (
+            <button type="button" onClick={() => set({ sectors: [], industries: [] })} className="text-[11px] text-ink-3 hover:text-ink">
+              Todos
+            </button>
+          )}
+        </span>
+        <div className="flex flex-wrap gap-1">
+          {universe.sectors.filter((f) => f.code !== 'UNKNOWN').map((f) => {
+            const on = form.sectors.includes(f.code)
+            return (
+              <button
+                key={f.code}
+                type="button"
+                aria-pressed={on}
+                title={`${f.n_members} valores`}
+                onClick={() => toggleSector(f.code)}
+                className={clsx(chip, on ? 'border-accent/40 bg-accent-soft text-ink' : 'border-line bg-surface-2 text-ink-3 hover:text-ink-2')}
+              >
+                {f.name}
+              </button>
+            )
+          })}
+        </div>
+        {!form.sectors.length && <p className="mt-1 text-[11px] text-ink-3">Ninguno marcado: todo el universo.</p>}
+      </div>
+      <Field label="Industrias">
+        <select
+          className={inputCls}
+          value=""
+          onChange={(e) => e.target.value && set({ industries: [...form.industries, e.target.value] })}
+        >
+          <option value="">{form.industries.length ? 'Añadir otra industria…' : 'Todas (o elige una o varias)…'}</option>
+          {industries
+            .filter((f) => f.code !== 'UNKNOWN' && !form.industries.includes(f.code))
+            .map((f) => (
+              <option key={f.code} value={f.code}>
+                {f.name} · {f.n_members}
+              </option>
+            ))}
+        </select>
+      </Field>
+      {form.industries.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {form.industries.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => set({ industries: form.industries.filter((x) => x !== c) })}
+              className={clsx(chip, 'border-accent/40 bg-accent-soft text-ink')}
+              title="Quitar"
+            >
+              {industryName.get(c) ?? c} <X size={11} aria-hidden />
+            </button>
+          ))}
+        </div>
+      )}
+      {form.sectors.length > 0 && form.industries.length > 0 && (
+        <p className="text-[11px] text-ink-3">
+          Valores de {form.sectors.map((c) => sectorName.get(c) ?? c).join(', ')} que además están en las industrias elegidas.
+        </p>
+      )}
+    </>
   )
 }
 
@@ -104,8 +276,11 @@ function DefinitionPanel({
   onDelete,
   deleting,
   onNew,
+  universes,
 }: {
   cat: StrategyLabCatalog
+  /** The universes a strategy can run on (loaded apart: undefined while loading). */
+  universes: LabUniverses | undefined
   form: FormState
   setForm: (f: FormState) => void
   /** null: a strategy written from scratch (NEW). */
@@ -279,19 +454,31 @@ function DefinitionPanel({
       </Section>
 
       <Section title="Mercado y periodo">
-        <Field label="Activo">
-          <select className={inputCls} value={form.instrument} onChange={(e) => set({ instrument: e.target.value })}>
-            {groups.map(([g, items]) => (
-              <optgroup key={g} label={g}>
-                {items.map((i) => (
-                  <option key={i.key} value={i.key}>
-                    {i.label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </Field>
+        <Segmented size="sm" label="Ámbito" value={form.scope} options={SCOPES} onChange={(v) => set({ scope: v })} />
+        {form.scope === 'asset' ? (
+          <Field label="Activo">
+            <select className={inputCls} value={form.instrument} onChange={(e) => set({ instrument: e.target.value })}>
+              {form.extraInstrument && (
+                <optgroup label="Abierto desde un universo">
+                  <option value={form.extraInstrument.key}>{form.extraInstrument.label}</option>
+                </optgroup>
+              )}
+              {groups.map(([g, items]) => (
+                <optgroup key={g} label={g}>
+                  {items.map((i) => (
+                    <option key={i.key} value={i.key}>
+                      {i.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </Field>
+        ) : universes ? (
+          <UniversePicker u={universes} form={form} set={set} />
+        ) : (
+          <Skeleton className="h-[120px]" />
+        )}
         <div>
           <span className="mb-1 block text-xs text-ink-2">Periodo</span>
           <Segmented size="sm" label="Periodo" value={form.preset} options={PRESETS} onChange={(v) => set({ preset: v })} />
@@ -331,6 +518,34 @@ function DefinitionPanel({
             onChange={(e) => set({ cost: e.target.value })}
           />
         </Field>
+        {form.scope === 'universe' && universes && (
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Huecos" hint="Posiciones a la vez; cada operación entra con 1/N del patrimonio. Una señal sin hueco se pierde.">
+              <input
+                type="number"
+                className={clsx(inputCls, 'num')}
+                value={form.slots}
+                placeholder={String(universes.default_slots)}
+                min={1}
+                max={universes.max_slots}
+                step={1}
+                onChange={(e) => set({ slots: e.target.value })}
+              />
+            </Field>
+            <Field label="Sorteos" hint="Los días con más señales que huecos, el orden se sortea N veces: cada cifra es la mediana, con su banda p10–p90.">
+              <input
+                type="number"
+                className={clsx(inputCls, 'num')}
+                value={form.draws}
+                placeholder={String(universes.default_draws)}
+                min={1}
+                max={universes.max_draws}
+                step={1}
+                onChange={(e) => set({ draws: e.target.value })}
+              />
+            </Field>
+          </div>
+        )}
       </Section>
 
       <button
@@ -343,7 +558,7 @@ function DefinitionPanel({
         )}
       >
         {running ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={14} />}
-        {running ? 'Calculando…' : dirty ? 'Ejecutar backtest' : 'Backtest ejecutado'}
+        {running ? 'Calculando…' : dirty ? (form.scope === 'universe' ? 'Ejecutar en el universo' : 'Ejecutar backtest') : 'Backtest ejecutado'}
       </button>
       {error && !running && <p className="text-xs text-down" role="alert">{error}</p>}
     </Card>
@@ -523,20 +738,74 @@ function Lab({ cat }: { cat: StrategyLabCatalog }) {
     })
   }
 
-  const dirty = JSON.stringify(current) !== JSON.stringify(submitted)
-  const panelError = q.isError ? errorText(q.error) : openError ?? (del.isError ? errorText(del.error) : null)
+  // On a universe: a background job, started by a POST and polled until it ends.
+  const universes = useLabUniverses()
+  const currentU = useMemo(() => (universes.data ? toUniverseRequest(form, template, universes.data) : null), [form, template, universes.data])
+  const [submittedU, setSubmittedU] = useState<UniverseBacktestRequest | null>(null)
+  const startU = useStartUniverseBacktest()
+  const [jobId, setJobId] = useState<string | null>(null)
+  const job = useUniverseJob(jobId)
+  const [shownU, setShownU] = useState<UniverseBacktest | null>(null)
+  if (job.data?.result && job.data.result !== shownU) setShownU(job.data.result)
+  const jobRunning = !!jobId && (!job.data || job.data.state === 'queued' || job.data.state === 'running') && !job.isError
+  const [cancelling, setCancelling] = useState(false)
+  const runUniverse = async () => {
+    if (!currentU) return
+    try {
+      const j = await startU.mutateAsync(currentU)
+      setSubmittedU(currentU)
+      setJobId(j.id)
+    } catch {
+      /* the core's words are shown in the panel */
+    }
+  }
+  const cancel = async () => {
+    if (!jobId) return
+    setCancelling(true)
+    try {
+      await cancelUniverseJob(jobId)
+      await job.refetch()
+    } finally {
+      setCancelling(false)
+    }
+  }
+  /** A member of the universe opened as its own backtest (with its chart). */
+  const openSymbol = (sym: UniverseSymbol) => {
+    const listed = cat.instruments.some((i) => i.key === sym.key)
+    const next: FormState = {
+      ...form,
+      scope: 'asset',
+      instrument: sym.key,
+      extraInstrument: listed ? null : { key: sym.key, label: `${sym.ticker} · ${sym.name}` },
+    }
+    setForm(next)
+    setSubmitted(toRequest(next, template))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const onUniverse = form.scope === 'universe'
+  const jobError = job.data?.state === 'failed' ? job.data.error : job.isError ? errorText(job.error) : null
+  const dirty = onUniverse ? JSON.stringify(currentU) !== JSON.stringify(submittedU) : JSON.stringify(current) !== JSON.stringify(submitted)
+  const panelError = onUniverse
+    ? startU.isError
+      ? errorText(startU.error)
+      : (jobError ?? openError)
+    : q.isError
+      ? errorText(q.error)
+      : (openError ?? (del.isError ? errorText(del.error) : null))
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
       <div className="lg:sticky lg:top-4">
         <DefinitionPanel
           cat={cat}
+          universes={universes.data}
           form={form}
           setForm={setForm}
           template={template}
           dirty={dirty}
-          running={q.isFetching}
+          running={onUniverse ? startU.isPending || jobRunning : q.isFetching}
           error={panelError}
-          onRun={() => setSubmitted(current)}
+          onRun={() => (onUniverse ? void runUniverse() : setSubmitted(current))}
           onEdit={() => void onEdit()}
           opening={opening}
           onDelete={onDelete}
@@ -575,15 +844,40 @@ function Lab({ cat }: { cat: StrategyLabCatalog }) {
             </div>
           </Card>
         )}
-        {q.isError && <ErrorState error={q.error} />}
-        {shown ? (
-          <BacktestResults r={shown} stale={q.isFetching || q.isError || dirty} />
-        ) : q.isError ? null : (
-          <div className="space-y-4">
-            <Skeleton className="h-[84px]" />
-            <Skeleton className="h-[96px]" />
-            <Skeleton className="h-[460px]" />
-          </div>
+        {onUniverse ? (
+          <>
+            {universes.isError && <ErrorState error={universes.error} />}
+            {jobRunning && job.data && <UniverseJobProgress job={job.data} onCancel={() => void cancel()} cancelling={cancelling} />}
+            {jobError && <ErrorState error={new Error(jobError)} />}
+            {job.data?.state === 'cancelled' && <p className="text-xs text-ink-3">Backtest cancelado.</p>}
+            {shownU ? (
+              <UniverseBacktestResults r={shownU} stale={jobRunning || dirty} onOpenSymbol={openSymbol} />
+            ) : (
+              !jobRunning && (
+                <Card title="Backtest sobre un universo">
+                  <p className="text-sm leading-relaxed text-ink-2">
+                    La estrategia se ejecuta en cada valor del universo, de una operación en una, y todas sus operaciones se
+                    operan como una cartera de N huecos frente al índice de referencia. Una señal solo cuenta los días en que el
+                    valor era miembro. Elige el universo (y, si quieres, sectores o industrias) y pulsa «Ejecutar en el
+                    universo»: una región entera tarda alrededor de un minuto.
+                  </p>
+                </Card>
+              )
+            )}
+          </>
+        ) : (
+          <>
+            {q.isError && <ErrorState error={q.error} />}
+            {shown ? (
+              <BacktestResults r={shown} stale={q.isFetching || q.isError || dirty} />
+            ) : q.isError ? null : (
+              <div className="space-y-4">
+                <Skeleton className="h-[84px]" />
+                <Skeleton className="h-[96px]" />
+                <Skeleton className="h-[460px]" />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -604,7 +898,7 @@ export function StrategyLabPage() {
       <PageHeader
         eyebrow="Laboratorio"
         title="Strategy Lab"
-        subtitle="Estrategias definidas por reglas y su backtest frente a comprar y mantener el mismo activo."
+        subtitle="Estrategias definidas por reglas y su backtest: en un activo frente a comprarlo y mantenerlo, o en un universo entero como cartera."
       >
         <Pill tone="neutral" title="Plantillas del core y estrategias guardadas desde el editor de reglas">
           <FlaskConical size={12} aria-hidden /> {cat.data ? strategyCount(cat.data) : '…'}

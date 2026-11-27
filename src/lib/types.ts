@@ -661,6 +661,170 @@ export interface Backtest {
   generated_at: string
 }
 
+// ------------------------------------------------ strategy lab · universe
+
+export interface UniverseFacet {
+  code: string
+  name: string
+  /** Stocks that were ever members. */
+  n_members: number
+  /** An industry's sector. */
+  sector_code: string | null
+}
+
+export interface LabUniverse {
+  code: string
+  label: string
+  kind: 'region' | 'index'
+  /** Stocks a member today. */
+  n_members: number
+  benchmark_key: string | null
+  benchmark_label: string | null
+  /** What its stored membership can vouch for, in words. */
+  membership_note: string
+  sectors: UniverseFacet[]
+  industries: UniverseFacet[]
+}
+
+export interface LabUniverses {
+  universes: LabUniverse[]
+  default_universe: string
+  default_slots: number
+  max_slots: number
+  default_draws: number
+  max_draws: number
+}
+
+export interface UniverseBacktestRequest extends Omit<BacktestRequest, 'instrument'> {
+  universe: string
+  sectors: string[]
+  industries: string[]
+  slots: number
+  draws: number
+}
+
+export interface Band {
+  p10: number | null
+  p50: number | null
+  p90: number | null
+}
+
+export interface UniversePortfolioSummary {
+  total_return_pct: Band
+  cagr_pct: Band
+  max_drawdown_pct: Band
+  sharpe: Band
+  exposure_pct: Band
+  trades_taken: Band
+  skipped_no_slot: Band
+  skipped_held: Band
+  open_at_end: Band
+}
+
+/** The portfolio day by day on its calendar, columnar. */
+export interface UniverseSeries {
+  dates: string[]
+  equity_p10: (number | null)[]
+  equity_p50: (number | null)[]
+  equity_p90: (number | null)[]
+  benchmark_equity: (number | null)[]
+  drawdown_p10: (number | null)[]
+  drawdown_p50: (number | null)[]
+  drawdown_p90: (number | null)[]
+  benchmark_drawdown: (number | null)[]
+  positions: (number | null)[]
+  exposure: (number | null)[]
+}
+
+export interface UniverseYear {
+  year: number
+  return_pct: Band
+  benchmark_pct: number | null
+  excess_pct: Band
+  max_drawdown_pct: Band
+}
+
+export interface UniverseGroup {
+  code: string
+  name: string
+  n_members: number
+  n_traded: number
+  stats: TradeStats
+}
+
+export interface UniverseSymbol {
+  /** Instrument key: opens its own backtest. */
+  key: string
+  ticker: string
+  name: string
+  sector: string
+  industry: string
+  status: 'ok' | 'no_bars' | 'not_warm'
+  stats: TradeStats
+  compounded_return_pct: number | null
+  entry_signals: number
+  not_member_signals: number
+}
+
+export interface UniverseCoverage {
+  listed: number
+  evaluated: number
+  no_bars: number
+  not_warm: number
+  traded: number
+  entry_signals: number
+  not_member_signals: number
+  ended_with_data: number
+}
+
+export interface UniverseBacktest {
+  strategy_id: string
+  strategy_label: string
+  rules: Composition
+  entry_text: string
+  exit_text: string
+  universe: string
+  universe_label: string
+  /** The narrowing, named; empty = the whole universe. */
+  selection_label: string
+  start: string
+  end: string
+  entry_point: EntryPoint
+  cost_bps: number
+  slots: number
+  draws: number
+  draws_run: number
+  contended: boolean
+  benchmark_label: string | null
+  strategy: UniversePortfolioSummary
+  benchmark: PerformanceSummary | null
+  trade_stats: TradeStats
+  coverage: UniverseCoverage
+  series: UniverseSeries
+  years: UniverseYear[]
+  sectors: UniverseGroup[]
+  industries: UniverseGroup[]
+  symbols: UniverseSymbol[]
+  conventions: string[]
+  warnings: string[]
+  elapsed_s: number
+  generated_at: string
+}
+
+export type JobState = 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
+
+export interface UniverseBacktestJob {
+  id: string
+  state: JobState
+  stage: string
+  done: number
+  total: number
+  queue_position: number
+  elapsed_s: number
+  error: string | null
+  result: UniverseBacktest | null
+}
+
 /** A backtest's request plus the window to explain (inside its period). */
 export interface DiagnoseRequest extends BacktestRequest {
   window_start: string

@@ -170,7 +170,7 @@ function PriceCard({ r }: { r: Backtest }) {
   )
 }
 
-function Row({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
+export function Row({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-t border-line py-1.5 first:border-t-0">
       <span className="flex items-center gap-1.5 text-ink-2">
@@ -205,7 +205,7 @@ function TradeStatsCard({ r }: { r: Backtest }) {
   )
 }
 
-function Signed({ v }: { v: number | null }) {
+export function Signed({ v }: { v: number | null }) {
   return <span className={clsx(v != null && v > 0 && 'text-up', v != null && v < 0 && 'text-down')}>{pct1(v)}</span>
 }
 
