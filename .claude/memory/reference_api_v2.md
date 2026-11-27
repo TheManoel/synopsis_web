@@ -34,6 +34,9 @@ metadata:
 | `DELETE /strategy-lab/strategies/{id}` | — | solo estrategias `origin: user` (204) |
 | `POST /strategy-lab/backtest` | `BacktestRequestDTO`: `{strategy, params}` o `{rules, label}` | `core/strategy_lab/services/backtester` (422 = valores rechazados, en palabras); devuelve `rules` |
 | `POST /strategy-lab/diagnose` | petición del backtest + `window_start`, `window_end` | `core/strategy_lab/services/diagnosis` (traza por sesión, márgenes, veredicto; 422 = ventana inválida) |
+| `GET /strategy-lab/universes` | — | universos con acciones + sectores/industrias nombrados + nota de membresía + huecos/sorteos por defecto |
+| `POST /strategy-lab/universe-backtest` | petición del backtest sin `instrument` + `universe`, `sectors`, `industries`, `slots`, `draws` | 202 + tarea (422/404 antes de encolar); `core/strategy_lab/services/universe_backtest` |
+| `GET` / `DELETE /strategy-lab/universe-backtest/{id}` | — | estado (`queued/running/done/failed/cancelled`, `stage`, `done/total`) y `result` al acabar; DELETE cancela; 404 si caducó o se reinició la API |
 | `GET /symbols/indicators` | — | catálogo `core/symbols/domain/indicators.py` + marcos y ventanas |
 | `GET /symbols/search` | `q`, `limit` | `SqlSymbolDirectory.candidates` + `core/symbols/services/search.rank_hits` |
 | `GET/PUT /symbols/watchlist` | PUT `{keys}` (lista entera) | `watchlist_store` (YAML) + `compute_reading` por clave |

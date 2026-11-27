@@ -114,8 +114,20 @@ sincronizado) dentro de `BacktestResults` (extraído del lab, compartido con Sí
 de operaciones, el microscopio analiza el tramo fuera de mercado previo a cada entrada. Helpers
 de formulario en `src/lib/strategyForm.ts`. Solo en Símbolos por ahora (el lab no lo muestra).
 
-**Siguiente**: stops/objetivos/salida por tiempo como bloques de salida (el walker ya tiene
+**Sobre un universo** (2026-11-27, `components/strategy/UniverseBacktestResults.tsx`):
+ámbito «Un activo | Universo» en «Mercado y periodo»; universo (regiones / índices, con la nota
+de membresía del core), sectores en chips, industrias en un select filtrado por los sectores
+marcados (quitar un sector quita sus industrias); huecos y sorteos en «Ejecución» (vacío =
+defecto del core). Ejecutar = POST → tarea; `useUniverseJob` sondea cada segundo hasta que acaba
+(`UniverseJobProgress`: etapa, valores hechos/total, cancelar). Resultados: cifras con banda
+p10–p90 entre sorteos, curva (mediana + p10/p90 discontinuas + referencia, caída, posiciones),
+cartera y cobertura, operaciones de todos los valores, año a año, por sector/industria y por
+valor (ordenable, buscador, 200 filas y «mostrar más»). Pulsar un valor abre su backtest de un
+activo (`extraInstrument` si no está en el catálogo); su «Acumulada» = ese backtest. Lógica y
+decisiones: memoria `project_strategy_lab` del core.
+
+**Siguiente**: prioridad entre señales del mismo día (hoy el sorteo decide), stops/objetivos/salida por tiempo como bloques de salida (el walker ya tiene
 `ExitLevel`), cortos (`SIDES` solo ofrece largo), más series (ATR, ADX, volumen), divergencias
 por pivotes (las del motor con confirmación), rectángulo/triángulo como series (techo/suelo de
-patrón), condiciones sobre la pendiente («la media sube N sesiones»), varios activos (el simulador ya admite
-N huecos).
+patrón), condiciones sobre la pendiente («la media sube N sesiones») y «en alguna de las últimas N
+sesiones» (el toque del rebote SMA150 hoy es aproximado).
