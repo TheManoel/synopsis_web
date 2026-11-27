@@ -1,13 +1,16 @@
 import clsx from 'clsx'
 import { FlaskConical, LoaderCircle, Pencil, Play, Plus, Save, Trash2, Undo2, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query'
 import { BacktestResults } from '../components/strategy/BacktestResults'
 import { Field } from '../components/strategy/form'
 import { RulesEditor } from '../components/strategy/RulesEditor'
 import { UniverseBacktestResults, UniverseJobProgress } from '../components/strategy/UniverseBacktestResults'
+import { UniverseScreenResults } from '../components/strategy/UniverseScreenResults'
 import { Card, ErrorState, InfoTip, PageHeader, Pill, Segmented, Skeleton, Warnings } from '../components/ui'
 import {
   cancelUniverseJob,
+  cancelUniverseScreen,
   fetchRules,
   useBacktest,
   useDeleteStrategy,
@@ -15,8 +18,10 @@ import {
   useRulesPreview,
   useSaveStrategy,
   useStartUniverseBacktest,
+  useStartUniverseScreen,
   useStrategyLabCatalog,
   useUniverseJob,
+  useUniverseScreenJob,
 } from '../lib/api'
 import {
   errorText,
@@ -34,14 +39,14 @@ import type {
   BacktestRequest,
   Composition,
   EntryPoint,
+  JobState,
   LabUniverse,
   LabUniverses,
   RulesPreview,
   StrategyLabCatalog,
   StrategyTemplate,
-  UniverseBacktest,
   UniverseBacktestRequest,
-  UniverseSymbol,
+  UniverseScreenRequest,
 } from '../lib/types'
 
 // ------------------------------------------------------------------ form
@@ -57,10 +62,22 @@ const SCOPES: { value: Scope; label: string; hint: string }[] = [
   { value: 'universe', label: 'Universo', hint: 'Todos los valores de un universo (región, índice, sectores o industrias) como una cartera de N huecos' },
 ]
 
+/** A backtest of the past, or a screen of the last session (signals now). */
+type Mode = 'backtest' | 'screen'
+const MODES: { value: Mode; label: string; hint: string }[] = [
+  { value: 'backtest', label: 'Backtest', hint: 'Cómo le habría ido a la estrategia en el pasado' },
+  { value: 'screen', label: 'Screener', hint: 'Qué valores de un universo dan hoy la señal de entrada' },
+]
+
 interface FormState {
   /** A catalog id, or NEW (then `rules` holds the strategy). */
   strategy: string
   params: Record<string, string>
+  mode: Mode
+  /** Screener: the entry rule counts if it held in the last N sessions. */
+  lookback: string
+  /** Screener: add Yahoo's current (delayed) quote to the stored bars. */
+  live: boolean
   scope: Scope
   instrument: string
   /** An instrument opened from a universe's table, outside the market catalog. */
@@ -89,6 +106,9 @@ function initialForm(cat: StrategyLabCatalog): FormState {
   return {
     strategy: t.id,
     params: paramDefaults(t),
+    mode: 'backtest',
+    lookback: '1',
+    live: true,
     scope: 'asset',
     instrument: cat.default_instrument,
     extraInstrument: null,
@@ -141,6 +161,26 @@ function toUniverseRequest(f: FormState, t: StrategyTemplate | null, u: LabUnive
     draws: numberOr(f.draws, u.default_draws),
   }
 }
+
+function toScreenRequest(f: FormState, t: StrategyTemplate | null, u: LabUniverses): UniverseScreenRequest {
+  const { strategy, params, rules, label } = toRequest(f, t)
+  return {
+    strategy,
+    params,
+    rules,
+    label,
+    universe: f.universe || u.default_universe,
+    sectors: f.sectors,
+    industries: f.industries,
+    lookback: numberOr(f.lookback, 1),
+    live: f.live,
+  }
+}
+
+const PRICES: { value: 'live' | 'stored'; label: string; hint: string }[] = [
+  { value: 'live', label: 'Precio actual', hint: 'Lo guardado más la sesión de hoy de Yahoo (diferido): con el mercado abierto, la señal es provisional' },
+  { value: 'stored', label: 'Último cierre', hint: 'Solo los cierres guardados en la base' },
+]
 
 function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
@@ -313,8 +353,12 @@ function DefinitionPanel({
     set({ strategy: t.id, params: paramDefaults(t), rules: null, loaded: null })
   }
 
+  const screen = form.mode === 'screen'
   return (
     <Card bodyClassName="space-y-4 p-4">
+      <div className="[&>div]:flex [&>div]:w-full [&_button]:flex-1">
+        <Segmented label="Qué hacer" value={form.mode} options={MODES} onChange={(v) => set({ mode: v })} />
+      </div>
       <Section
         title="Estrategia"
         action={
@@ -453,100 +497,124 @@ function DefinitionPanel({
         )}
       </Section>
 
-      <Section title="Mercado y periodo">
-        <Segmented size="sm" label="Ámbito" value={form.scope} options={SCOPES} onChange={(v) => set({ scope: v })} />
-        {form.scope === 'asset' ? (
-          <Field label="Activo">
-            <select className={inputCls} value={form.instrument} onChange={(e) => set({ instrument: e.target.value })}>
-              {form.extraInstrument && (
-                <optgroup label="Abierto desde un universo">
-                  <option value={form.extraInstrument.key}>{form.extraInstrument.label}</option>
-                </optgroup>
-              )}
-              {groups.map(([g, items]) => (
-                <optgroup key={g} label={g}>
-                  {items.map((i) => (
-                    <option key={i.key} value={i.key}>
-                      {i.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+      {screen ? (
+        <Section title="Universo y señal">
+          {universes ? <UniversePicker u={universes} form={form} set={set} /> : <Skeleton className="h-[120px]" />}
+          <Field label="Señal en las últimas" unit="sesiones" hint="1 = solo la última sesión. Con más, entra también quien dio la señal hace unos días (la tabla dice cuándo).">
+            <input
+              type="number"
+              className={clsx(inputCls, 'num')}
+              value={form.lookback}
+              min={1}
+              max={universes?.max_lookback}
+              step={1}
+              onChange={(e) => set({ lookback: e.target.value })}
+            />
           </Field>
-        ) : universes ? (
-          <UniversePicker u={universes} form={form} set={set} />
-        ) : (
-          <Skeleton className="h-[120px]" />
-        )}
-        <div>
-          <span className="mb-1 block text-xs text-ink-2">Periodo</span>
-          <Segmented size="sm" label="Periodo" value={form.preset} options={PRESETS} onChange={(v) => set({ preset: v })} />
-        </div>
-        {form.preset === 'custom' && (
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Desde">
-              <input type="date" className={clsx(inputCls, 'num')} value={form.start} onChange={(e) => set({ start: e.target.value })} />
-            </Field>
-            <Field label="Hasta">
-              <input type="date" className={clsx(inputCls, 'num')} value={form.end} onChange={(e) => set({ end: e.target.value })} />
-            </Field>
+          <div>
+            <span className="mb-1 block text-xs text-ink-2">Precios</span>
+            <Segmented size="sm" label="Precios" value={form.live ? 'live' : 'stored'} options={PRICES} onChange={(v) => set({ live: v === 'live' })} />
+            <p className="mt-1.5 text-[11px] text-ink-3">{PRICES.find((p) => p.value === (form.live ? 'live' : 'stored'))?.hint}.</p>
           </div>
-        )}
-      </Section>
+        </Section>
+      ) : (
+        <Section title="Mercado y periodo">
+          <Segmented size="sm" label="Ámbito" value={form.scope} options={SCOPES} onChange={(v) => set({ scope: v })} />
+          {form.scope === 'asset' ? (
+            <Field label="Activo">
+              <select className={inputCls} value={form.instrument} onChange={(e) => set({ instrument: e.target.value })}>
+                {form.extraInstrument && (
+                  <optgroup label="Abierto desde un universo">
+                    <option value={form.extraInstrument.key}>{form.extraInstrument.label}</option>
+                  </optgroup>
+                )}
+                {groups.map(([g, items]) => (
+                  <optgroup key={g} label={g}>
+                    {items.map((i) => (
+                      <option key={i.key} value={i.key}>
+                        {i.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </Field>
+          ) : universes ? (
+            <UniversePicker u={universes} form={form} set={set} />
+          ) : (
+            <Skeleton className="h-[120px]" />
+          )}
+          <div>
+            <span className="mb-1 block text-xs text-ink-2">Periodo</span>
+            <Segmented size="sm" label="Periodo" value={form.preset} options={PRESETS} onChange={(v) => set({ preset: v })} />
+          </div>
+          {form.preset === 'custom' && (
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Desde">
+                <input type="date" className={clsx(inputCls, 'num')} value={form.start} onChange={(e) => set({ start: e.target.value })} />
+              </Field>
+              <Field label="Hasta">
+                <input type="date" className={clsx(inputCls, 'num')} value={form.end} onChange={(e) => set({ end: e.target.value })} />
+              </Field>
+            </div>
+          )}
+        </Section>
+      )}
 
-      <Section title="Ejecución">
-        <div>
-          <span className="mb-1 block text-xs text-ink-2">Órdenes</span>
-          <Segmented
-            size="sm"
-            label="Ejecución de las órdenes"
-            value={form.entryPoint}
-            options={cat.entry_points}
-            onChange={(v) => set({ entryPoint: v })}
-          />
-          <p className="mt-1.5 text-[11px] text-ink-3">{cat.entry_points.find((e) => e.value === form.entryPoint)?.hint}</p>
-        </div>
-        <Field label="Costes por lado" hint="Comisión + deslizamiento, en puntos básicos del importe operado. Se cobran en la entrada y en la salida." unit="pb">
-          <input
-            type="number"
-            className={clsx(inputCls, 'num')}
-            value={form.cost}
-            min={0}
-            max={cat.max_cost_bps}
-            step="any"
-            onChange={(e) => set({ cost: e.target.value })}
-          />
-        </Field>
-        {form.scope === 'universe' && universes && (
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Huecos" hint="Posiciones a la vez; cada operación entra con 1/N del patrimonio. Una señal sin hueco se pierde.">
-              <input
-                type="number"
-                className={clsx(inputCls, 'num')}
-                value={form.slots}
-                placeholder={String(universes.default_slots)}
-                min={1}
-                max={universes.max_slots}
-                step={1}
-                onChange={(e) => set({ slots: e.target.value })}
-              />
-            </Field>
-            <Field label="Sorteos" hint="Los días con más señales que huecos, el orden se sortea N veces: cada cifra es la mediana, con su banda p10–p90.">
-              <input
-                type="number"
-                className={clsx(inputCls, 'num')}
-                value={form.draws}
-                placeholder={String(universes.default_draws)}
-                min={1}
-                max={universes.max_draws}
-                step={1}
-                onChange={(e) => set({ draws: e.target.value })}
-              />
-            </Field>
+      {!screen && (
+        <Section title="Ejecución">
+          <div>
+            <span className="mb-1 block text-xs text-ink-2">Órdenes</span>
+            <Segmented
+              size="sm"
+              label="Ejecución de las órdenes"
+              value={form.entryPoint}
+              options={cat.entry_points}
+              onChange={(v) => set({ entryPoint: v })}
+            />
+            <p className="mt-1.5 text-[11px] text-ink-3">{cat.entry_points.find((e) => e.value === form.entryPoint)?.hint}</p>
           </div>
-        )}
-      </Section>
+          <Field label="Costes por lado" hint="Comisión + deslizamiento, en puntos básicos del importe operado. Se cobran en la entrada y en la salida." unit="pb">
+            <input
+              type="number"
+              className={clsx(inputCls, 'num')}
+              value={form.cost}
+              min={0}
+              max={cat.max_cost_bps}
+              step="any"
+              onChange={(e) => set({ cost: e.target.value })}
+            />
+          </Field>
+          {form.scope === 'universe' && universes && (
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Huecos" hint="Posiciones a la vez; cada operación entra con 1/N del patrimonio. Una señal sin hueco se pierde.">
+                <input
+                  type="number"
+                  className={clsx(inputCls, 'num')}
+                  value={form.slots}
+                  placeholder={String(universes.default_slots)}
+                  min={1}
+                  max={universes.max_slots}
+                  step={1}
+                  onChange={(e) => set({ slots: e.target.value })}
+                />
+              </Field>
+              <Field label="Sorteos" hint="Los días con más señales que huecos, el orden se sortea N veces: cada cifra es la mediana, con su banda p10–p90.">
+                <input
+                  type="number"
+                  className={clsx(inputCls, 'num')}
+                  value={form.draws}
+                  placeholder={String(universes.default_draws)}
+                  min={1}
+                  max={universes.max_draws}
+                  step={1}
+                  onChange={(e) => set({ draws: e.target.value })}
+                />
+              </Field>
+            </div>
+          )}
+        </Section>
+      )}
 
       <button
         onClick={onRun}
@@ -558,11 +626,89 @@ function DefinitionPanel({
         )}
       >
         {running ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={14} />}
-        {running ? 'Calculando…' : dirty ? (form.scope === 'universe' ? 'Ejecutar en el universo' : 'Ejecutar backtest') : 'Backtest ejecutado'}
+        {running ? 'Calculando…' : screen ? (dirty ? 'Buscar señales' : 'Señales buscadas') : dirty ? (form.scope === 'universe' ? 'Ejecutar en el universo' : 'Ejecutar backtest') : 'Backtest ejecutado'}
       </button>
       {error && !running && <p className="text-xs text-down" role="alert">{error}</p>}
     </Card>
   )
+}
+
+// ------------------------------------------------------------------ jobs
+
+interface Job<R> {
+  id: string
+  state: JobState
+  stage: string
+  done: number
+  total: number
+  queue_position: number
+  elapsed_s: number
+  error: string | null
+  result: R | null
+}
+
+interface JobRun<R> {
+  /** The request of the job last started (what "dirty" compares against). */
+  submitted: unknown
+  /** Its state (the result is ``shown``). */
+  job: Job<unknown> | undefined
+  /** The last result that came back: it keeps showing while another runs. */
+  shown: R | null
+  running: boolean
+  /** Starting or running. */
+  busy: boolean
+  /** The core's refusal of the start, in its words. */
+  error: string | null
+  jobError: string | null
+  cancelling: boolean
+  start: (req: unknown) => Promise<void>
+  cancel: () => Promise<void>
+}
+
+/** A background job of the core (backtest or screen on a universe): started by
+ *  a POST, polled until it ends, cancellable. */
+function useJobRun<Req, J extends Job<unknown>, R = NonNullable<J['result']>>(
+  startM: UseMutationResult<J, Error, Req>,
+  useJobQuery: (id: string | null) => UseQueryResult<J>,
+  cancelFn: (id: string) => Promise<unknown>,
+): JobRun<R> {
+  const [submitted, setSubmitted] = useState<Req | null>(null)
+  const [id, setId] = useState<string | null>(null)
+  const q = useJobQuery(id)
+  const [shown, setShown] = useState<R | null>(null)
+  if (q.data?.result && q.data.result !== shown) setShown(q.data.result as R)
+  const running = !!id && (!q.data || q.data.state === 'queued' || q.data.state === 'running') && !q.isError
+  const [cancelling, setCancelling] = useState(false)
+  return {
+    submitted,
+    job: q.data,
+    shown,
+    running,
+    busy: startM.isPending || running,
+    error: startM.isError ? errorText(startM.error) : null,
+    jobError: q.data?.state === 'failed' ? q.data.error : q.isError ? errorText(q.error) : null,
+    cancelling,
+    start: async (req) => {
+      if (!req) return
+      try {
+        const j = await startM.mutateAsync(req as Req)
+        setSubmitted(req as Req)
+        setId(j.id)
+      } catch {
+        /* the core's words are shown in the panel */
+      }
+    },
+    cancel: async () => {
+      if (!id) return
+      setCancelling(true)
+      try {
+        await cancelFn(id)
+        await q.refetch()
+      } finally {
+        setCancelling(false)
+      }
+    },
+  }
 }
 
 // ------------------------------------------------------------------ page
@@ -738,42 +884,19 @@ function Lab({ cat }: { cat: StrategyLabCatalog }) {
     })
   }
 
-  // On a universe: a background job, started by a POST and polled until it ends.
+  // On a universe, backtest and screen are background jobs: started by a POST
+  // and polled until they end; the last result keeps showing meanwhile.
   const universes = useLabUniverses()
   const currentU = useMemo(() => (universes.data ? toUniverseRequest(form, template, universes.data) : null), [form, template, universes.data])
-  const [submittedU, setSubmittedU] = useState<UniverseBacktestRequest | null>(null)
-  const startU = useStartUniverseBacktest()
-  const [jobId, setJobId] = useState<string | null>(null)
-  const job = useUniverseJob(jobId)
-  const [shownU, setShownU] = useState<UniverseBacktest | null>(null)
-  if (job.data?.result && job.data.result !== shownU) setShownU(job.data.result)
-  const jobRunning = !!jobId && (!job.data || job.data.state === 'queued' || job.data.state === 'running') && !job.isError
-  const [cancelling, setCancelling] = useState(false)
-  const runUniverse = async () => {
-    if (!currentU) return
-    try {
-      const j = await startU.mutateAsync(currentU)
-      setSubmittedU(currentU)
-      setJobId(j.id)
-    } catch {
-      /* the core's words are shown in the panel */
-    }
-  }
-  const cancel = async () => {
-    if (!jobId) return
-    setCancelling(true)
-    try {
-      await cancelUniverseJob(jobId)
-      await job.refetch()
-    } finally {
-      setCancelling(false)
-    }
-  }
+  const currentS = useMemo(() => (universes.data ? toScreenRequest(form, template, universes.data) : null), [form, template, universes.data])
+  const backtestRun = useJobRun(useStartUniverseBacktest(), useUniverseJob, cancelUniverseJob)
+  const screenRun = useJobRun(useStartUniverseScreen(), useUniverseScreenJob, cancelUniverseScreen)
   /** A member of the universe opened as its own backtest (with its chart). */
-  const openSymbol = (sym: UniverseSymbol) => {
+  const openSymbol = (sym: { key: string; ticker: string; name: string }) => {
     const listed = cat.instruments.some((i) => i.key === sym.key)
     const next: FormState = {
       ...form,
+      mode: 'backtest',
       scope: 'asset',
       instrument: sym.key,
       extraInstrument: listed ? null : { key: sym.key, label: `${sym.ticker} · ${sym.name}` },
@@ -783,16 +906,23 @@ function Lab({ cat }: { cat: StrategyLabCatalog }) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const onUniverse = form.scope === 'universe'
-  const jobError = job.data?.state === 'failed' ? job.data.error : job.isError ? errorText(job.error) : null
-  const dirty = onUniverse ? JSON.stringify(currentU) !== JSON.stringify(submittedU) : JSON.stringify(current) !== JSON.stringify(submitted)
-  const panelError = onUniverse
-    ? startU.isError
-      ? errorText(startU.error)
-      : (jobError ?? openError)
-    : q.isError
-      ? errorText(q.error)
-      : (openError ?? (del.isError ? errorText(del.error) : null))
+  const onScreen = form.mode === 'screen'
+  const onUniverse = !onScreen && form.scope === 'universe'
+  const run = onScreen ? screenRun : onUniverse ? backtestRun : null
+  const dirty = onScreen
+    ? !same(currentS, screenRun.submitted)
+    : onUniverse
+      ? !same(currentU, backtestRun.submitted)
+      : !same(current, submitted)
+  const panelError = run ? (run.error ?? openError) : q.isError ? errorText(q.error) : (openError ?? (del.isError ? errorText(del.error) : null))
+  const jobPanel = (r: JobRun<unknown>, what: string) => (
+    <>
+      {universes.isError && <ErrorState error={universes.error} />}
+      {r.running && r.job && <UniverseJobProgress job={r.job} onCancel={() => void r.cancel()} cancelling={r.cancelling} />}
+      {r.jobError && <ErrorState error={new Error(r.jobError)} />}
+      {r.job?.state === 'cancelled' && <p className="text-xs text-ink-3">{what} cancelado.</p>}
+    </>
+  )
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
       <div className="lg:sticky lg:top-4">
@@ -803,9 +933,9 @@ function Lab({ cat }: { cat: StrategyLabCatalog }) {
           setForm={setForm}
           template={template}
           dirty={dirty}
-          running={onUniverse ? startU.isPending || jobRunning : q.isFetching}
+          running={run ? run.busy : q.isFetching}
           error={panelError}
-          onRun={() => (onUniverse ? void runUniverse() : setSubmitted(current))}
+          onRun={() => (onScreen ? void screenRun.start(currentS) : onUniverse ? void backtestRun.start(currentU) : setSubmitted(current))}
           onEdit={() => void onEdit()}
           opening={opening}
           onDelete={onDelete}
@@ -844,16 +974,31 @@ function Lab({ cat }: { cat: StrategyLabCatalog }) {
             </div>
           </Card>
         )}
-        {onUniverse ? (
+        {onScreen ? (
           <>
-            {universes.isError && <ErrorState error={universes.error} />}
-            {jobRunning && job.data && <UniverseJobProgress job={job.data} onCancel={() => void cancel()} cancelling={cancelling} />}
-            {jobError && <ErrorState error={new Error(jobError)} />}
-            {job.data?.state === 'cancelled' && <p className="text-xs text-ink-3">Backtest cancelado.</p>}
-            {shownU ? (
-              <UniverseBacktestResults r={shownU} stale={jobRunning || dirty} onOpenSymbol={openSymbol} />
+            {jobPanel(screenRun, 'Screener')}
+            {screenRun.shown ? (
+              <UniverseScreenResults r={screenRun.shown} stale={screenRun.running || dirty} onOpenSymbol={openSymbol} />
             ) : (
-              !jobRunning && (
+              !screenRun.running && (
+                <Card title="Screener de un universo">
+                  <p className="text-sm leading-relaxed text-ink-2">
+                    Lee la regla de entrada de la estrategia en la última sesión de cada valor del universo (o en las últimas N) y
+                    lista los que dan señal, con cuándo empezó y el valor de cada serie de la estrategia. Con «Precio actual» se
+                    añade la sesión de hoy de Yahoo. Elige el universo y pulsa «Buscar señales»: una región entera tarda
+                    alrededor de un minuto.
+                  </p>
+                </Card>
+              )
+            )}
+          </>
+        ) : onUniverse ? (
+          <>
+            {jobPanel(backtestRun, 'Backtest')}
+            {backtestRun.shown ? (
+              <UniverseBacktestResults r={backtestRun.shown} stale={backtestRun.running || dirty} onOpenSymbol={openSymbol} />
+            ) : (
+              !backtestRun.running && (
                 <Card title="Backtest sobre un universo">
                   <p className="text-sm leading-relaxed text-ink-2">
                     La estrategia se ejecuta en cada valor del universo, de una operación en una, y todas sus operaciones se

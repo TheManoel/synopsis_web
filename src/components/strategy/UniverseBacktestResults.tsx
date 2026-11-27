@@ -413,7 +413,15 @@ export function UniverseBacktestResults({ r, stale, onOpenSymbol }: { r: Univers
 }
 
 /** A queued or running job: where it is, how far, and a way to stop it. */
-export function UniverseJobProgress({ job, onCancel, cancelling }: { job: UniverseBacktestJob; onCancel: () => void; cancelling: boolean }) {
+export function UniverseJobProgress({
+  job,
+  onCancel,
+  cancelling,
+}: {
+  job: Pick<UniverseBacktestJob, 'state' | 'stage' | 'done' | 'total' | 'queue_position' | 'elapsed_s'>
+  onCancel: () => void
+  cancelling: boolean
+}) {
   const pct = job.total ? Math.round((100 * job.done) / job.total) : null
   return (
     <div className="card px-4 py-4">

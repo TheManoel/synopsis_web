@@ -693,6 +693,8 @@ export interface LabUniverses {
   max_slots: number
   default_draws: number
   max_draws: number
+  /** Longest window (sessions) a screen's signal may be looked for in. */
+  max_lookback: number
 }
 
 export interface UniverseBacktestRequest extends Omit<BacktestRequest, 'instrument'> {
@@ -823,6 +825,75 @@ export interface UniverseBacktestJob {
   elapsed_s: number
   error: string | null
   result: UniverseBacktest | null
+}
+
+export interface UniverseScreenRequest {
+  strategy?: string
+  params?: Record<string, ParamValue>
+  rules?: Composition
+  label?: string
+  universe: string
+  sectors: string[]
+  industries: string[]
+  /** The entry rule counts if it held in the last N sessions (1 = the last one). */
+  lookback: number
+  /** Add Yahoo's recent (delayed) bars to the stored ones. */
+  live: boolean
+}
+
+export interface ScreenSeries {
+  id: string
+  label: string
+  scale: Scale
+}
+
+export interface ScreenHit {
+  /** Instrument key: opens its own backtest. */
+  key: string
+  ticker: string
+  name: string
+  sector: string
+  industry: string
+  last_date: string
+  last_close: number
+  change_pct: number | null
+  /** The last session is Yahoo's, not stored yet. */
+  provisional: boolean
+  signal_date: string
+  /** 0 = the last session. */
+  sessions_since: number
+  /** Sessions in a row the entry rule held (1 = it just started). */
+  run_length: number
+  /** The exit rule holds too at the last session. */
+  exit_now: boolean
+  /** Aligned with UniverseScreen.series. */
+  values: (number | null)[]
+}
+
+export interface UniverseScreen {
+  strategy_id: string
+  strategy_label: string
+  rules: Composition
+  entry_text: string
+  exit_text: string
+  universe: string
+  universe_label: string
+  selection_label: string
+  /** The universe's last session. */
+  as_of: string | null
+  lookback: number
+  live: boolean
+  series: ScreenSeries[]
+  coverage: { listed: number; evaluated: number; no_bars: number; not_warm: number; stale: number; provisional: number; hits: number }
+  hits: ScreenHit[]
+  conventions: string[]
+  warnings: string[]
+  elapsed_s: number
+  generated_at: string
+}
+
+export interface UniverseScreenJob extends Omit<UniverseBacktestJob, 'result'> {
+  result: UniverseScreen | null
 }
 
 /** A backtest's request plus the window to explain (inside its period). */

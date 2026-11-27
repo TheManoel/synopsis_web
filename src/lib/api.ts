@@ -47,6 +47,8 @@ import type {
   LabUniverses,
   UniverseBacktestJob,
   UniverseBacktestRequest,
+  UniverseScreenJob,
+  UniverseScreenRequest,
   SymbolChart,
   SymbolHit,
   SymbolProfile,
@@ -276,19 +278,33 @@ export function useStartUniverseBacktest() {
 
 const RUNNING_STATES = new Set(['queued', 'running'])
 
-/** A queued or running job, polled every second until it ends; a finished one is kept. */
-export const useUniverseJob = (id: string | null) =>
+/** A background job of the core, polled every second until it ends; a finished one is kept. */
+const useJob = <T extends { state: string }>(kind: 'universe-backtest' | 'universe-screen', id: string | null) =>
   useQuery({
-    queryKey: ['strategy-lab', 'universe-job', id],
-    queryFn: () => get<UniverseBacktestJob>(`/strategy-lab/universe-backtest/${enc(id!)}`),
+    queryKey: ['strategy-lab', kind, id],
+    queryFn: () => get<T>(`/strategy-lab/${kind}/${enc(id!)}`),
     enabled: !!id,
     refetchInterval: (q) => (q.state.data && !RUNNING_STATES.has(q.state.data.state) ? false : 1000),
     staleTime: Infinity,
     retry: 0,
   })
 
+export const useUniverseJob = (id: string | null) => useJob<UniverseBacktestJob>('universe-backtest', id)
+
 export const cancelUniverseJob = (id: string) =>
   request<UniverseBacktestJob>(`/strategy-lab/universe-backtest/${enc(id)}`, { method: 'DELETE' })
+
+/** Queues a screen of a universe (which members signal now); a 422 is refused before queuing. */
+export function useStartUniverseScreen() {
+  return useMutation({
+    mutationFn: (req: UniverseScreenRequest) => post<UniverseScreenJob>('/strategy-lab/universe-screen', req),
+  })
+}
+
+export const useUniverseScreenJob = (id: string | null) => useJob<UniverseScreenJob>('universe-screen', id)
+
+export const cancelUniverseScreen = (id: string) =>
+  request<UniverseScreenJob>(`/strategy-lab/universe-screen/${enc(id)}`, { method: 'DELETE' })
 
 // ---------------------------------------------------------------- symbols
 

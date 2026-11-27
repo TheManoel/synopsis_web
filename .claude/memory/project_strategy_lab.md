@@ -126,6 +126,14 @@ valor (ordenable, buscador, 200 filas y «mostrar más»). Pulsar un valor abre 
 activo (`extraInstrument` si no está en el catálogo); su «Acumulada» = ese backtest. Lógica y
 decisiones: memoria `project_strategy_lab` del core.
 
+**Screener** (2026-11-27, `components/strategy/UniverseScreenResults.tsx`): conmutador «Backtest |
+Screener» arriba del panel; en Screener, universo + «Señal en las últimas N sesiones» + «Precio
+actual | Último cierre». Tabla de señales (orden del core: más reciente, racha más corta), «Solo
+nuevas», buscador, columnas = series de la estrategia en la última sesión (sin repetir el cierre),
+`salida` si la regla de salida también se cumple, ● si la sesión es provisional. Pulsar abre el
+backtest del valor. Backtest y screener comparten `useJobRun` (lanzar, sondear, cancelar,
+conservar el último resultado) en `StrategyLabPage`.
+
 **Siguiente**: prioridad entre señales del mismo día (hoy el sorteo decide), stops/objetivos/salida por tiempo como bloques de salida (el walker ya tiene
 `ExitLevel`), cortos (`SIDES` solo ofrece largo), más series (ATR, ADX, volumen), divergencias
 por pivotes (las del motor con confirmación), rectángulo/triángulo como series (techo/suelo de
