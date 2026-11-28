@@ -25,6 +25,7 @@ import type {
   IndicatorCatalog,
   IndicatorSeries,
   InstrumentSeries,
+  OiChanges,
   OptionsSummary,
   Participation,
   ParticipationLens,
@@ -44,6 +45,7 @@ import type {
   Section,
   StrategyLabCatalog,
   StrategyTemplate,
+  StrikeHistory,
   LabUniverses,
   UniverseBacktestJob,
   UniverseBacktestRequest,
@@ -160,6 +162,23 @@ export const useExpiryDetail = (expiry: string | null, basis: Basis, refreshNonc
     queryFn: () => get<ExpiryDetail>(`/options/spx/expiries/${expiry}?basis=${basis}&band=0.1`),
     enabled: !!expiry,
     placeholderData: keepPreviousData,
+  })
+
+export const useStrikeHistory = (pick: { expiry: string; strike: number; right: 'C' | 'P' } | null) =>
+  useQuery({
+    queryKey: ['options', 'spx', 'history', 'strike', pick],
+    queryFn: () =>
+      get<StrikeHistory>(`/options/spx/history/strike?expiry=${pick!.expiry}&strike=${pick!.strike}&right=${pick!.right}`),
+    enabled: !!pick,
+    placeholderData: keepPreviousData,
+  })
+
+/** 409 = aún no hay fotos de dos sesiones: se muestra el motivo, no es un fallo. */
+export const useOiChanges = (maxDays: number) =>
+  useQuery({
+    queryKey: ['options', 'spx', 'history', 'oi', maxDays],
+    queryFn: () => get<OiChanges>(`/options/spx/history/oi-changes?top=20&max_days=${maxDays}`),
+    retry: false,
   })
 
 export const useVolContext = (bars: number) =>

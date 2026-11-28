@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { FlaskConical, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { useExpiryDetail, useOptionsSummary, useVolContext } from '../lib/api'
+import { ApiError, useExpiryDetail, useOiChanges, useOptionsSummary, useStrikeHistory, useVolContext } from '../lib/api'
 import {
   DASH,
   fmtCompact,
@@ -225,6 +225,8 @@ function ExpiryChips({ term, value, onChange }: { term: TermPoint[]; value: stri
 }
 
 function ExpiryView({ d }: { d: ExpiryDetail }) {
+  const [pick, setPick] = useState<Pick | null>(null)
+  const shown = pick && pick.expiry === d.term.expiry ? pick : null
   const spot = d.meta.spot
   const F = d.term.forward
   const smile = d.rows.filter((r) => r.iv != null).map((r) => [r.strike, r.iv! * 100] as [number, number])
@@ -291,20 +293,33 @@ function ExpiryView({ d }: { d: ExpiryDetail }) {
           />
         </Card>
       </div>
-      <ChainTable d={d} />
+      <ChainTable d={d} picked={shown} onPick={setPick} />
+      {shown && <StrikeHistoryCard pick={shown} />}
     </div>
   )
 }
 
-function ChainTable({ d }: { d: ExpiryDetail }) {
+type Pick = { expiry: string; strike: number; right: 'C' | 'P' }
+
+const deltaOi = (v: number | null | undefined) =>
+  v == null || v === 0 ? null : (
+    <div className={clsx('text-[10px] font-normal', v > 0 ? 'text-up' : 'text-down')}>{fmtSigned(v, 0)}</div>
+  )
+
+function ChainTable({ d, picked, onPick }: { d: ExpiryDetail; picked: Pick | null; onPick: (p: Pick) => void }) {
   const F = d.term.forward
   const near = useMemo(() => {
     const idx = d.rows.reduce((best, r, i) => (Math.abs(r.strike - F) < Math.abs(d.rows[best].strike - F) ? i : best), 0)
     return d.rows.slice(Math.max(0, idx - 14), idx + 15)
   }, [d, F])
   const cell = (v: number | null | undefined, dec = 2) => (v == null ? DASH : fmtNum(v, dec))
+  const b = d.baseline
+  const subtitle = b
+    ? `29 strikes centrados en el forward · sombreadas las opciones dentro de dinero · bajo cada cifra, el cambio frente a la foto ${b.kind === 'close' ? 'de cierre' : 'a demanda'} de la sesión del ${fmtDate(b.session)} · pulsa un lado para ver su historia`
+    : '29 strikes centrados en el forward · sombreadas las opciones dentro de dinero · sin foto archivada de una sesión anterior con la que comparar'
+  const isPicked = (k: number, right: 'C' | 'P') => picked?.expiry === d.term.expiry && picked.strike === k && picked.right === right
   return (
-    <Card title="Cadena alrededor del forward" subtitle="29 strikes centrados en el forward · sombreadas las opciones dentro de dinero" bodyClassName="p-0">
+    <Card title="Cadena alrededor del forward" subtitle={subtitle} bodyClassName="p-0">
       <div className="scroll-thin overflow-x-auto">
         <table className="w-full min-w-[860px] text-[12px]">
           <thead className="text-[11px] text-ink-3">
@@ -327,20 +342,33 @@ function ChainTable({ d }: { d: ExpiryDetail }) {
             {near.map((r) => {
               const callItm = r.strike < F
               const atm = Math.abs(r.strike - F) === Math.min(...near.map((x) => Math.abs(x.strike - F)))
+              const side = (right: 'C' | 'P', itm: boolean) =>
+                clsx(
+                  'num cursor-pointer px-2 py-1.5 text-right align-top',
+                  itm ? 'bg-surface-2 text-ink' : 'text-ink-2',
+                  isPicked(r.strike, right) && 'bg-accent-soft',
+                  'hover:bg-surface-3',
+                )
+              const pick = (right: 'C' | 'P') => () => onPick({ expiry: d.term.expiry, strike: r.strike, right })
               return (
                 <tr key={r.strike} className={clsx('border-t border-line', atm && 'outline outline-1 -outline-offset-1 outline-accent/40')}>
                   {[r.call?.volume, r.call?.open_interest, r.call?.delta, r.call?.bid, r.call?.ask].map((v, i) => (
-                    <td key={i} className={clsx('num px-2 py-1.5 text-right', callItm ? 'bg-surface-2 text-ink' : 'text-ink-2')}>
+                    <td key={i} className={side('C', callItm)} onClick={pick('C')}>
                       {cell(v, i < 2 ? 0 : 2)}
+                      {i === 1 && deltaOi(r.call?.open_interest_change)}
                     </td>
                   ))}
-                  <td className="num px-3 py-1.5 text-center font-semibold text-ink">
+                  <td className="num px-3 py-1.5 text-center align-top font-semibold text-ink">
                     {fmtNum(r.strike, 0)}
                     <div className="text-[10px] font-normal text-ink-3">{fmtIv(r.iv)}</div>
+                    {r.iv_change != null && (
+                      <div className="text-[10px] font-normal text-ink-2">{fmtSigned(r.iv_change * 100, 1)} pts</div>
+                    )}
                   </td>
                   {[r.put?.bid, r.put?.ask, r.put?.delta, r.put?.open_interest, r.put?.volume].map((v, i) => (
-                    <td key={i} className={clsx('num px-2 py-1.5 text-right', !callItm ? 'bg-surface-2 text-ink' : 'text-ink-2')}>
+                    <td key={i} className={side('P', !callItm)} onClick={pick('P')}>
                       {cell(v, i > 2 ? 0 : 2)}
+                      {i === 3 && deltaOi(r.put?.open_interest_change)}
                     </td>
                   ))}
                 </tr>
@@ -349,6 +377,130 @@ function ChainTable({ d }: { d: ExpiryDetail }) {
           </tbody>
         </table>
       </div>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------- history
+
+const kindLabel = { close: 'Cierre', adhoc: 'A demanda', live: 'En vivo' } as const
+
+function StrikeHistoryCard({ pick }: { pick: Pick }) {
+  const q = useStrikeHistory(pick)
+  const h = q.data
+  const title = `${pick.right === 'P' ? 'Put' : 'Call'} ${fmtNum(pick.strike, 0)} · ${fmtDate(pick.expiry)}`
+  const ivPts = (h?.points ?? []).filter((p) => p.iv != null).map((p) => [Date.parse(p.captured_at), p.iv! * 100] as [number, number])
+  return (
+    <Card
+      title={`Historia a strike fijo · ${title}`}
+      subtitle="Cada foto archivada de la cadena, recalculada con el mismo método que la cadena en vivo (IV propia, delta y forward)"
+    >
+      {q.error ? (
+        <ErrorState error={q.error} />
+      ) : !h ? (
+        <Skeleton className="h-[160px]" />
+      ) : (
+        <div className={clsx('space-y-3', q.isPlaceholderData && 'is-stale')}>
+          <Warnings items={h.warnings} />
+          {ivPts.length >= 2 && (
+            <LinePlot
+              height={200}
+              series={[{ id: 'iv', label: 'IV propia', color: 'var(--s1)', points: ivPts, dots: true }]}
+              xFormat={(t) => fmtShortDate(new Date(t).toISOString())}
+              yFormat={(v) => `${fmtNum(v, 1)}%`}
+              tooltipTitle={(t) => fmtTime(new Date(t).toISOString())}
+            />
+          )}
+          <div className="scroll-thin overflow-x-auto">
+            <table className="w-full min-w-[760px] text-[12px]">
+              <thead className="text-[11px] text-ink-3">
+                <tr>
+                  {['Foto', 'Sesión', 'Captura', 'Forward', 'IV', 'Δ', 'Mid', 'Int. ab.', 'Vol.'].map((c) => (
+                    <th key={c} className="px-2 py-1.5 text-right font-medium first:text-left">{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {h.points.map((p) => (
+                  <tr key={`${p.kind}-${p.captured_at}`} className="border-t border-line">
+                    <td className="px-2 py-1.5 text-left text-ink-2">{kindLabel[p.kind]}</td>
+                    <td className="num px-2 py-1.5 text-right">{fmtDate(p.session)}</td>
+                    <td className="num px-2 py-1.5 text-right text-ink-3">{fmtTime(p.captured_at)}</td>
+                    <td className="num px-2 py-1.5 text-right">{fmtNum(p.forward, 1)}</td>
+                    <td className="num px-2 py-1.5 text-right font-semibold">{fmtIv(p.iv, 2)}</td>
+                    <td className="num px-2 py-1.5 text-right">{p.delta == null ? DASH : fmtNum(p.delta, 3)}</td>
+                    <td className="num px-2 py-1.5 text-right">{p.mid == null ? DASH : fmtNum(p.mid, 2)}</td>
+                    <td className="num px-2 py-1.5 text-right">
+                      {p.open_interest == null ? DASH : fmtNum(p.open_interest, 0)}
+                      <div className="text-[10px] text-ink-3">{p.oi_as_of ? `cierre ${fmtShortDate(p.oi_as_of)}` : 'fecha incierta'}</div>
+                    </td>
+                    <td className="num px-2 py-1.5 text-right">{p.volume == null ? DASH : fmtNum(p.volume, 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11px] text-ink-3">
+            El interés abierto lo publica OCC por la mañana con el cierre de la sesión anterior; el volumen es el acumulado de la
+            sesión hasta la foto.
+          </p>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function OiChangesCard({ maxDays }: { maxDays: number }) {
+  const q = useOiChanges(maxDays)
+  const notYet = q.error instanceof ApiError && q.error.status === 409
+  const r = q.data
+  return (
+    <Card
+      title="Mayores cambios de interés abierto"
+      subtitle={
+        r
+          ? `Entre las fotos de las sesiones del ${fmtDate(r.before.session)} y del ${fmtDate(r.after.session)} · vencimientos ≤ ${maxDays} días · posiciones abiertas menos cerradas`
+          : `Entre las dos últimas sesiones archivadas · vencimientos ≤ ${maxDays} días`
+      }
+      bodyClassName="p-0"
+    >
+      {notYet ? (
+        <p className="px-4 py-3 text-sm text-ink-3">{q.error!.message}. La foto de cierre se toma cada sesión 15 minutos antes del cierre.</p>
+      ) : q.error ? (
+        <div className="p-4"><ErrorState error={q.error} /></div>
+      ) : !r ? (
+        <Skeleton className="m-4 h-[160px]" />
+      ) : (
+        <div>
+          {r.warnings.length > 0 && <div className="px-4 pt-3"><Warnings items={r.warnings} /></div>}
+          <table className="w-full text-[12px]">
+            <thead className="text-[11px] text-ink-3">
+              <tr>
+                {['Contrato', 'Vencimiento', 'Strike', 'Antes', 'Después', 'Cambio'].map((c) => (
+                  <th key={c} className="px-3 py-1.5 text-right font-medium first:text-left">{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {r.changes.map((c) => (
+                <tr key={c.contract} className="border-t border-line">
+                  <td className="px-3 py-1.5 text-left">
+                    <span style={{ color: c.right === 'P' ? PUT : CALL }}>{c.right === 'P' ? 'Put' : 'Call'}</span>{' '}
+                    <span className="text-ink-3">{c.contract}</span>
+                  </td>
+                  <td className="num px-3 py-1.5 text-right">{fmtDate(c.expiry)}</td>
+                  <td className="num px-3 py-1.5 text-right">{fmtNum(c.strike, 0)}</td>
+                  <td className="num px-3 py-1.5 text-right">{fmtNum(c.before, 0)}</td>
+                  <td className="num px-3 py-1.5 text-right">{fmtNum(c.after, 0)}</td>
+                  <td className={clsx('num px-3 py-1.5 text-right font-semibold', c.change > 0 ? 'text-up' : 'text-down')}>
+                    {fmtSigned(c.change, 0)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Card>
   )
 }
@@ -520,6 +672,11 @@ export function OptionsPage() {
           </section>
 
           <section>
+            <h2 className="mb-3 text-[15px] font-semibold">Posiciones nuevas y cerradas</h2>
+            <OiChangesCard maxDays={maxDays} />
+          </section>
+
+          <section>
             <h2 className="mb-3 text-[15px] font-semibold">Contexto de volatilidad</h2>
             {vol.error ? <ErrorState error={vol.error} /> : !vol.data ? <Skeleton className="h-[400px]" /> : <VolContextView v={vol.data} />}
           </section>
@@ -532,7 +689,8 @@ export function OptionsPage() {
               ))}
               <li>
                 Fuente: {q.data.meta.source}. Spot {fmtLevel(q.data.meta.spot)} a {fmtTime(q.data.meta.spot_time)}. Instantánea en memoria
-                durante 5 minutos; no se guarda histórico de la cadena.
+                durante 5 minutos. El histórico (cambios frente a la sesión anterior, historia a strike fijo) sale de las fotos
+                archivadas: una de cierre por sesión, 15 minutos antes del cierre.
               </li>
             </ul>
           </details>

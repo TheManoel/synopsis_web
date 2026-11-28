@@ -7,7 +7,8 @@ metadata:
 
 # Opciones · PoC SPX
 
-- **Estado**: PoC funcional (2026-11-24). Instantánea en memoria (TTL 5 min), sin histórico.
+- **Estado**: PoC funcional (2026-11-24). Instantánea en memoria (TTL 5 min); desde el
+  2026-11-28 con histórico archivado (memoria `project_option_chain_history` del core).
 - **Leer si**: tocas `/opciones`, el GEX, la IV o quieres ampliar a otros subyacentes
 - **Código**: core `src/core/options/` (`black76`, `chain_analytics`, `expiry_policy`,
   `vol_context`), adaptador `src/infrastructure/market_feeds/yfinance_option_chain.py`,
@@ -29,5 +30,8 @@ Cotizaciones con 15 min de retraso.
 **Limitación clave**: Yahoo da OI≈0 fuera de horario (2% de los contratos). La base `auto`
 pondera por volumen y lo avisa; `open_interest` explícito se respeta y también se avisa.
 
-**Siguiente paso natural**: guardar instantáneas diarias de la cadena (OI real, GEX en el
-tiempo) → requiere tabla nueva en la BD = DDL → pedir OK al usuario antes.
+**Histórico (2026-11-28)**: la tabla de la cadena muestra bajo la IV el cambio a strike fijo y
+bajo el OI su cambio frente a la foto de una sesión anterior (`baseline`); pulsar un lado de un
+strike abre `StrikeHistoryCard` (fotos + punto en vivo); `OiChangesCard` lista los mayores
+cambios de OI entre las dos últimas sesiones (409 = aún no hay dos sesiones: se muestra el
+motivo, no es error). Siguiente: historia de términos (IV ATM 30d, RR25) y GEX en el tiempo.

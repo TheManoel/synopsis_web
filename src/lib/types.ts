@@ -202,6 +202,8 @@ export interface QuoteSide {
   open_interest: number | null
   provider_iv: number | null
   delta: number | null
+  /** Frente a la foto de referencia del vencimiento (null sin ella). */
+  open_interest_change: number | null
 }
 
 export interface ChainRow {
@@ -210,6 +212,70 @@ export interface ChainRow {
   gamma: number | null
   call: QuoteSide | null
   put: QuoteSide | null
+  /** IV propia a este strike menos la de la foto de referencia (strike fijo). */
+  iv_change: number | null
+}
+
+/** Foto archivada de la cadena (ods.option_chain_snapshot). */
+export interface ArchivedSnapshot {
+  snapshot_id: number
+  kind: 'close' | 'adhoc'
+  session: string
+  captured_at: string
+  spot: number
+  spot_time: string | null
+  contracts: number
+  /** Sesión cuyo cierre refleja el interés abierto (null si no se puede saber). */
+  oi_as_of: string | null
+  warnings: string[]
+}
+
+export interface StrikeHistoryPoint {
+  snapshot_id: number | null
+  kind: 'close' | 'adhoc' | 'live'
+  session: string
+  captured_at: string
+  spot: number
+  days: number
+  forward: number
+  iv: number | null
+  delta: number | null
+  gamma: number | null
+  bid: number | null
+  ask: number | null
+  mid: number | null
+  last: number | null
+  last_trade_at: string | null
+  volume: number | null
+  open_interest: number | null
+  oi_as_of: string | null
+}
+
+export interface StrikeHistory {
+  underlying: string
+  expiry: string
+  strike: number
+  right: 'C' | 'P'
+  points: StrikeHistoryPoint[]
+  warnings: string[]
+}
+
+export interface OiChange {
+  contract: string
+  expiry: string
+  strike: number
+  right: 'C' | 'P'
+  before: number
+  after: number
+  change: number
+}
+
+export interface OiChanges {
+  underlying: string
+  before: ArchivedSnapshot
+  after: ArchivedSnapshot
+  changes: OiChange[]
+  warnings: string[]
 }
 
 export interface ExpiryDetail {
@@ -221,6 +287,8 @@ export interface ExpiryDetail {
   pcr_weight: number | null
   pcr_volume: number | null
   rows: ChainRow[]
+  /** Foto de una sesión anterior frente a la que se miden los cambios. */
+  baseline: ArchivedSnapshot | null
   warnings: string[]
 }
 
